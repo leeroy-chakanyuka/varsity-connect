@@ -45,12 +45,16 @@ class SupportIntegrationTest {
   @Autowired LostFoundReportRepository reportRows;
   @Autowired SupportOfferRepository offers;
   @Autowired SupportRequestRepository requests;
+  @Autowired com.varsityconnect.notification.NotificationRepository notifications;
+  @Autowired com.varsityconnect.community.CommunityCommentRepository communityComments;
+  @Autowired com.varsityconnect.community.CommunityPostRepository communityPosts;
 
   private String requesterToken;
   private String helperToken;
 
   @BeforeEach
   void seed() throws Exception {
+    notifications.deleteAll();
     payments.deleteAll();
     orders.deleteAll();
     cartItems.deleteAll();
@@ -59,6 +63,8 @@ class SupportIntegrationTest {
     reportRows.deleteAll();
     offers.deleteAll();
     requests.deleteAll();
+    communityComments.deleteAll();
+    communityPosts.deleteAll();
     listings.deleteAll();
     users.deleteAll();
     requesterToken = register("helpee@cput.ac.za", "22C000001").get("token").asText();

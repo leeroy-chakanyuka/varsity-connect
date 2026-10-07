@@ -31,12 +31,30 @@ class AuthIntegrationTest {
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper mapper;
   @Autowired UserRepository users;
+  @Autowired com.varsityconnect.cart.CartItemRepository cartItems;
+  @Autowired com.varsityconnect.cart.CartRepository carts;
+  @Autowired com.varsityconnect.order.OrderRepository orderRows;
+  @Autowired com.varsityconnect.notification.NotificationRepository notifications;
+  @Autowired com.varsityconnect.payment.PaymentRepository paymentRows;
+  @Autowired com.varsityconnect.lostfound.LostFoundMatchRepository matchRows;
+  @Autowired com.varsityconnect.lostfound.LostFoundReportRepository reportRows;
+  @Autowired com.varsityconnect.support.SupportOfferRepository supportOffers;
+  @Autowired com.varsityconnect.support.SupportRequestRepository supportRequests;
+  @Autowired com.varsityconnect.community.CommunityCommentRepository communityComments;
+  @Autowired com.varsityconnect.community.CommunityPostRepository communityPosts;
+  @Autowired com.varsityconnect.marketplace.MarketplaceListingRepository listings;
   @Autowired PasswordEncoder passwords;
 
   @BeforeEach
   void clean() {
-    users.deleteAll();
-  }
+    /* children first (shared h2 across test classes) */
+    notifications.deleteAll();
+    paymentRows.deleteAll();
+    orderRows.deleteAll();
+    cartItems.deleteAll();
+    carts.deleteAll();
+    matchRows.deleteAll();
+    reportRows.deleteAll();
     supportOffers.deleteAll();
     supportRequests.deleteAll();
     communityComments.deleteAll();

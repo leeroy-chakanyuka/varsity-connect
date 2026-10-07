@@ -1,6 +1,8 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
+import { Bell } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useCart } from "../api/cart";
+import { useUnreadCount } from "../api/notifications";
 
 /* minimal shell like stardust nav, lowercase + warm neutrals */
 export function Shell() {
@@ -8,6 +10,7 @@ export function Shell() {
   const navigate = useNavigate();
   /* badge only for sessions, no token means no basket query */
   const { data: cart } = useCart();
+  const { data: unread } = useUnreadCount();
 
   const onLogout = () => {
     logout();
@@ -59,6 +62,12 @@ export function Shell() {
                 {user.fullName.split(" ")[0]?.toLowerCase()}
               </Link>
               <Link
+                to="/profile"
+                className="text-sm lowercase tracking-wide text-taupe transition-colors hover:text-rosewood"
+              >
+                profile
+              </Link>
+              <Link
                 to="/orders"
                 className="text-sm lowercase tracking-wide text-taupe transition-colors hover:text-rosewood"
               >
@@ -73,6 +82,18 @@ export function Shell() {
                 {(cart?.itemCount ?? 0) > 0 && (
                   <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-rosewood px-1 text-[11px] font-semibold text-white">
                     {cart?.itemCount}
+                  </span>
+                )}
+              </Link>
+              <Link
+                to="/notifications"
+                aria-label={`notifications${unread ? `, ${unread} unread` : ""}`}
+                className="relative rounded-xl border border-sage p-2 text-cocoa transition hover:border-rosewood hover:text-rosewood"
+              >
+                <Bell className="h-4 w-4" aria-hidden="true" />
+                {(unread ?? 0) > 0 && (
+                  <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-rosewood px-1 text-[11px] font-semibold text-white">
+                    {unread}
                   </span>
                 )}
               </Link>

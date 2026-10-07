@@ -4,12 +4,15 @@ import com.varsityconnect.common.BadRequestException;
 import com.varsityconnect.common.ForbiddenException;
 import com.varsityconnect.common.NotFoundException;
 import com.varsityconnect.common.PageResponse;
+import com.varsityconnect.notification.SupportOfferAcceptedEvent;
+import com.varsityconnect.notification.SupportOfferCreatedEvent;
 import com.varsityconnect.security.UserPrincipal;
 import com.varsityconnect.user.User;
 import com.varsityconnect.user.UserRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,14 +25,17 @@ public class SupportService {
   private final SupportRequestRepository requests;
   private final SupportOfferRepository offers;
   private final UserRepository users;
+  private final ApplicationEventPublisher events;
 
   public SupportService(
       SupportRequestRepository requests,
       SupportOfferRepository offers,
-      UserRepository users) {
+      UserRepository users,
+      ApplicationEventPublisher events) {
     this.requests = requests;
     this.offers = offers;
     this.users = users;
+    this.events = events;
   }
 
   @Transactional
@@ -127,6 +133,7 @@ public class SupportService {
       request.setStatus(SupportStatus.OFFER_RECEIVED);
       requests.save(request);
     }
+    events.publishEvent(new SupportOfferCreatedEvent(offer.getId()));
     return SupportOfferResponse.from(offer);
   }
 
@@ -146,6 +153,7 @@ public class SupportService {
     SupportRequest request = offer.getRequest();
     request.setStatus(SupportStatus.IN_PROGRESS);
     requests.save(request);
+    events.publishEvent(new SupportOfferAcceptedEvent(offer.getId()));
     return SupportOfferResponse.from(offer);
   }
 

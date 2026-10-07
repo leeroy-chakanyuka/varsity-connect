@@ -47,6 +47,14 @@ class OrderCheckoutIntegrationTest {
   @Autowired CartItemRepository cartItems;
   @Autowired CartRepository carts;
   @Autowired OrderRepository orders;
+  @Autowired com.varsityconnect.notification.NotificationRepository notifications;
+  @Autowired com.varsityconnect.payment.PaymentRepository payments;
+  @Autowired com.varsityconnect.lostfound.LostFoundMatchRepository matchRows;
+  @Autowired com.varsityconnect.lostfound.LostFoundReportRepository reportRows;
+  @Autowired com.varsityconnect.support.SupportOfferRepository supportOffers;
+  @Autowired com.varsityconnect.support.SupportRequestRepository supportRequests;
+  @Autowired com.varsityconnect.community.CommunityCommentRepository communityComments;
+  @Autowired com.varsityconnect.community.CommunityPostRepository communityPosts;
 
   private String sellerToken;
   private String buyerToken;
@@ -56,9 +64,17 @@ class OrderCheckoutIntegrationTest {
 
   @BeforeEach
   void seed() throws Exception {
+    notifications.deleteAll();
+    payments.deleteAll();
     cartItems.deleteAll();
     carts.deleteAll();
     orders.deleteAll();
+    matchRows.deleteAll();
+    reportRows.deleteAll();
+    supportOffers.deleteAll();
+    supportRequests.deleteAll();
+    communityComments.deleteAll();
+    communityPosts.deleteAll();
     listings.deleteAll();
     users.deleteAll();
     sellerToken = register("orderseller@cput.ac.za", "228000001", "STUDENT").get("token").asText();

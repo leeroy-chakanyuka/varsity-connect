@@ -1,7 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "../components/ProtectedRoute";
 import { Shell } from "../components/shell";
-import { DashboardPage } from "../pages/DashboardPage";
 import { CartPage } from "../pages/CartPage";
 import { CheckoutPage } from "../pages/CheckoutPage";
 import { CommunityPage } from "../pages/CommunityPage";
@@ -9,23 +8,25 @@ import { CommunityPostPage } from "../pages/CommunityPostPage";
 import { CreateListingPage } from "../pages/CreateListingPage";
 import { CreatePostPage } from "../pages/CreatePostPage";
 import { CreateReportPage } from "../pages/CreateReportPage";
+import { DashboardPage } from "../pages/DashboardPage";
 import { EditListingPage } from "../pages/EditListingPage";
 import { ListingDetailPage } from "../pages/ListingDetailPage";
 import { LoginPage } from "../pages/LoginPage";
-import { MarketplacePage } from "../pages/MarketplacePage";
 import { LostFoundPage } from "../pages/LostFoundPage";
-import { CreateSupportRequestPage } from "../pages/CreateSupportRequestPage";
+import { MarketplacePage } from "../pages/MarketplacePage";
+import { NotificationsPage } from "../pages/NotificationsPage";
 import { OrderDetailPage } from "../pages/OrderDetailPage";
 import { OrdersPage } from "../pages/OrdersPage";
 import { PaymentResultPage } from "../pages/PaymentResultPage";
-import { ReportDetailPage } from "../pages/ReportDetailPage";
-import { SupportRequestDetailsPage } from "../pages/SupportRequestDetailsPage";
-import { SurvivalModePage } from "../pages/SurvivalModePage";
 import { MyProfilePage } from "../pages/MyProfilePage";
 import { PublicProfilePage } from "../pages/PublicProfilePage";
 import { RegisterPage } from "../pages/RegisterPage";
+import { ReportDetailPage } from "../pages/ReportDetailPage";
 import { RoleSelectPage } from "../pages/RoleSelectPage";
 import { SplashPage } from "../pages/SplashPage";
+import { CreateSupportRequestPage } from "../pages/CreateSupportRequestPage";
+import { SupportRequestDetailsPage } from "../pages/SupportRequestDetailsPage";
+import { SurvivalModePage } from "../pages/SurvivalModePage";
 
 /* auth routes are real now, feature routes plug in with their stages */
 export function Router() {
@@ -201,6 +202,14 @@ export function Router() {
           element={
             <ProtectedRoute>
               <CommunityPostPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="notifications"
+          element={
+            <ProtectedRoute>
+              <NotificationsPage />
             </ProtectedRoute>
           }
         />

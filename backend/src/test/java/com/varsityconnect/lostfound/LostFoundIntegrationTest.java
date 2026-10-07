@@ -36,12 +36,17 @@ class LostFoundIntegrationTest {
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper mapper;
   @Autowired UserRepository users;
-  @Autowired com.varsityconnect.marketplace.MarketplaceListingRepository listings;
-  @Autowired com.varsityconnect.cart.CartItemRepository cartItems;
-  @Autowired com.varsityconnect.cart.CartRepository carts;
-  @Autowired com.varsityconnect.order.OrderRepository orders;
-  @Autowired com.varsityconnect.payment.PaymentRepository payments;
+  @Autowired MarketplaceListingRepository listings;
+  @Autowired CartItemRepository cartItems;
+  @Autowired CartRepository carts;
+  @Autowired OrderRepository orders;
+  @Autowired PaymentRepository payments;
+  @Autowired com.varsityconnect.notification.NotificationRepository notifications;
   @Autowired com.varsityconnect.lostfound.LostFoundMatchRepository matchRows;
+  @Autowired com.varsityconnect.support.SupportOfferRepository supportOffers;
+  @Autowired com.varsityconnect.support.SupportRequestRepository supportRequests;
+  @Autowired com.varsityconnect.community.CommunityCommentRepository communityComments;
+  @Autowired com.varsityconnect.community.CommunityPostRepository communityPosts;
   @Autowired LostFoundReportRepository reports;
 
   private String ownerToken;
@@ -49,12 +54,17 @@ class LostFoundIntegrationTest {
 
   @BeforeEach
   void seed() throws Exception {
+    notifications.deleteAll();
     payments.deleteAll();
     orders.deleteAll();
     cartItems.deleteAll();
     carts.deleteAll();
     matchRows.deleteAll();
     reports.deleteAll();
+    supportOffers.deleteAll();
+    supportRequests.deleteAll();
+    communityComments.deleteAll();
+    communityPosts.deleteAll();
     listings.deleteAll();
     users.deleteAll();
     ownerToken = register("reportowner@cput.ac.za", "22A000001", "STUDENT").get("token").asText();

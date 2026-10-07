@@ -37,7 +37,14 @@ class PaymentIntegrationTest {
   @Autowired CartItemRepository cartItems;
   @Autowired CartRepository carts;
   @Autowired OrderRepository orders;
+  @Autowired com.varsityconnect.notification.NotificationRepository notifications;
   @Autowired PaymentRepository payments;
+  @Autowired com.varsityconnect.lostfound.LostFoundMatchRepository matchRows;
+  @Autowired com.varsityconnect.lostfound.LostFoundReportRepository reportRows;
+  @Autowired com.varsityconnect.support.SupportOfferRepository supportOffers;
+  @Autowired com.varsityconnect.support.SupportRequestRepository supportRequests;
+  @Autowired com.varsityconnect.community.CommunityCommentRepository communityComments;
+  @Autowired com.varsityconnect.community.CommunityPostRepository communityPosts;
 
   private String sellerToken;
   private String buyerToken;
@@ -45,10 +52,17 @@ class PaymentIntegrationTest {
 
   @BeforeEach
   void seed() throws Exception {
+    notifications.deleteAll();
     payments.deleteAll();
     orders.deleteAll();
     cartItems.deleteAll();
     carts.deleteAll();
+    matchRows.deleteAll();
+    reportRows.deleteAll();
+    supportOffers.deleteAll();
+    supportRequests.deleteAll();
+    communityComments.deleteAll();
+    communityPosts.deleteAll();
     listings.deleteAll();
     users.deleteAll();
     sellerToken = register("payseller@cput.ac.za", "229000001", "STUDENT").get("token").asText();

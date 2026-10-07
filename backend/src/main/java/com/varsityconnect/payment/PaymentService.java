@@ -6,6 +6,7 @@ import com.varsityconnect.common.NotFoundException;
 import com.varsityconnect.marketplace.ListingStatus;
 import com.varsityconnect.marketplace.MarketplaceListing;
 import com.varsityconnect.marketplace.MarketplaceListingRepository;
+import com.varsityconnect.notification.OrderPaidEvent;
 import com.varsityconnect.order.Order;
 import com.varsityconnect.order.OrderRepository;
 import com.varsityconnect.order.OrderResponse;
@@ -15,6 +16,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,18 +29,21 @@ public class PaymentService {
   private final CartRepository carts;
   private final MarketplaceListingRepository listings;
   private final PaymentProvider provider;
+  private final ApplicationEventPublisher events;
 
   public PaymentService(
       OrderRepository orders,
       PaymentRepository payments,
       CartRepository carts,
       MarketplaceListingRepository listings,
-      PaymentProvider provider) {
+      PaymentProvider provider,
+      ApplicationEventPublisher events) {
     this.orders = orders;
     this.payments = payments;
     this.carts = carts;
     this.listings = listings;
     this.provider = provider;
+    this.events = events;
   }
 
   @Transactional
@@ -92,6 +97,7 @@ public class PaymentService {
       /* basket empties only now that money moved */
       carts.findByUserId(principal.id()).ifPresent(cart -> cart.getItems().clear());
       Order saved = orders.save(order);
+      events.publishEvent(new OrderPaidEvent(saved.getId()));
       return PaymentResponse.from(payment, OrderResponse.from(saved));
     } else {
       /* stock goes back on the shelf, basket stays for a retry */

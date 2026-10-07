@@ -39,8 +39,13 @@ class MatchingIntegrationTest {
   @Autowired CartRepository carts;
   @Autowired OrderRepository orders;
   @Autowired PaymentRepository payments;
+  @Autowired com.varsityconnect.notification.NotificationRepository notifications;
   @Autowired LostFoundReportRepository reports;
   @Autowired LostFoundMatchRepository matches;
+  @Autowired com.varsityconnect.support.SupportOfferRepository supportOffers;
+  @Autowired com.varsityconnect.support.SupportRequestRepository supportRequests;
+  @Autowired com.varsityconnect.community.CommunityCommentRepository communityComments;
+  @Autowired com.varsityconnect.community.CommunityPostRepository communityPosts;
 
   private String lostOwnerToken;
   private String foundOwnerToken;
@@ -48,12 +53,17 @@ class MatchingIntegrationTest {
 
   @BeforeEach
   void seed() throws Exception {
+    notifications.deleteAll();
     payments.deleteAll();
     orders.deleteAll();
     cartItems.deleteAll();
     carts.deleteAll();
     matches.deleteAll();
     reports.deleteAll();
+    supportOffers.deleteAll();
+    supportRequests.deleteAll();
+    communityComments.deleteAll();
+    communityPosts.deleteAll();
     listings.deleteAll();
     users.deleteAll();
     lostOwnerToken = register("lostowner@cput.ac.za", "22B000001").get("token").asText();

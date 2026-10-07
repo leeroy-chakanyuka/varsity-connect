@@ -4,12 +4,14 @@ import com.varsityconnect.common.BadRequestException;
 import com.varsityconnect.common.ForbiddenException;
 import com.varsityconnect.common.NotFoundException;
 import com.varsityconnect.common.PageResponse;
+import com.varsityconnect.notification.ListingCreatedEvent;
 import com.varsityconnect.security.UserPrincipal;
 import com.varsityconnect.user.User;
 import com.varsityconnect.user.UserRepository;
 import com.varsityconnect.user.UserRole;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,10 +23,13 @@ public class ListingService {
 
   private final MarketplaceListingRepository listings;
   private final UserRepository users;
+  private final ApplicationEventPublisher events;
 
-  public ListingService(MarketplaceListingRepository listings, UserRepository users) {
+  public ListingService(
+      MarketplaceListingRepository listings, UserRepository users, ApplicationEventPublisher events) {
     this.listings = listings;
     this.users = users;
+    this.events = events;
   }
 
   @Transactional
@@ -41,6 +46,7 @@ public class ListingService {
             blankToNull(request.location()));
     listing.setImages(cleanUrls(request.imageUrls()));
     MarketplaceListing saved = listings.save(listing);
+    events.publishEvent(new ListingCreatedEvent(saved.getId(), seller.getId()));
     return ListingResponse.from(saved);
   }
 

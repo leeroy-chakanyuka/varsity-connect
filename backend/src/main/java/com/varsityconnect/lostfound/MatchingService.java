@@ -8,6 +8,8 @@ import com.varsityconnect.user.UserRole;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
+import com.varsityconnect.notification.LostFoundMatchCreatedEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,16 +20,19 @@ public class MatchingService {
   private final LostFoundMatchRepository matches;
   private final LostFoundReportRepository reports;
   private final MatchingAlgorithm algorithm;
+  private final ApplicationEventPublisher events;
   private final double threshold;
 
   public MatchingService(
       LostFoundMatchRepository matches,
       LostFoundReportRepository reports,
       MatchingAlgorithm algorithm,
+      ApplicationEventPublisher events,
       @Value("${app.matching.threshold:0.55}") double threshold) {
     this.matches = matches;
     this.reports = reports;
     this.algorithm = algorithm;
+    this.events = events;
     this.threshold = threshold;
   }
 
@@ -56,6 +61,9 @@ public class MatchingService {
       }
       fresh.add(matches.save(new LostFoundMatch(lost, found, score)));
       pairedWith.add(candidate);
+    }
+    for (LostFoundMatch saved : fresh) {
+      events.publishEvent(new LostFoundMatchCreatedEvent(saved.getId()));
     }
     if (!pairedWith.isEmpty()) {
       report.setStatus(ReportStatus.MATCH_PENDING);

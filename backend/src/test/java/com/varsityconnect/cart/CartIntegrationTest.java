@@ -35,6 +35,15 @@ class CartIntegrationTest {
   @Autowired MarketplaceListingRepository listings;
   @Autowired CartItemRepository cartItems;
   @Autowired CartRepository carts;
+  @Autowired com.varsityconnect.order.OrderRepository orders;
+  @Autowired com.varsityconnect.notification.NotificationRepository notifications;
+  @Autowired com.varsityconnect.payment.PaymentRepository paymentRows;
+  @Autowired com.varsityconnect.lostfound.LostFoundMatchRepository matchRows;
+  @Autowired com.varsityconnect.lostfound.LostFoundReportRepository reportRows;
+  @Autowired com.varsityconnect.support.SupportOfferRepository supportOffers;
+  @Autowired com.varsityconnect.support.SupportRequestRepository supportRequests;
+  @Autowired com.varsityconnect.community.CommunityCommentRepository communityComments;
+  @Autowired com.varsityconnect.community.CommunityPostRepository communityPosts;
 
   private String sellerToken;
   private String buyerToken;
@@ -44,8 +53,17 @@ class CartIntegrationTest {
 
   @BeforeEach
   void seed() throws Exception {
+    notifications.deleteAll();
+    paymentRows.deleteAll();
+    orders.deleteAll();
     cartItems.deleteAll();
     carts.deleteAll();
+    matchRows.deleteAll();
+    reportRows.deleteAll();
+    supportOffers.deleteAll();
+    supportRequests.deleteAll();
+    communityComments.deleteAll();
+    communityPosts.deleteAll();
     listings.deleteAll();
     users.deleteAll();
     JsonNode seller = register("cartseller@cput.ac.za", "227000001", "STUDENT");

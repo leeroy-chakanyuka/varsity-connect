@@ -52,6 +52,7 @@ class CommunityIntegrationTest {
   @Autowired SupportRequestRepository supportRequests;
   @Autowired CommunityCommentRepository comments;
   @Autowired CommunityPostRepository posts;
+  @Autowired com.varsityconnect.notification.NotificationRepository notifications;
   @Autowired PasswordEncoder passwords;
 
   private String authorToken;
@@ -60,6 +61,7 @@ class CommunityIntegrationTest {
 
   @BeforeEach
   void seed() throws Exception {
+    notifications.deleteAll();
     payments.deleteAll();
     orders.deleteAll();
     cartItems.deleteAll();

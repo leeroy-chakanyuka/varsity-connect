@@ -6,6 +6,7 @@ import type { PaymentResult } from "../api/payments";
 import type { Report } from "../api/lostfound";
 import type { SupportOffer, SupportRequest } from "../api/support";
 import type { Post, PostComment } from "../api/community";
+import type { AppNotification } from "../api/notifications";
 
 /* canned campus users, tokens are test-only and never leave jsdom */
 function baseUsers(): Record<string, AuthUser> {
@@ -1487,3 +1488,97 @@ const communityHandlers = [
 ];
 
 handlers.push(...communityHandlers);
+
+/* ---- mock inbox below, one shelf per token, reset between tests ---- */
+
+let mockNotifications: Record<string, AppNotification[]> = {};
+
+function seedNotifications(): Record<string, AppNotification[]> {
+  return {
+    "student-token": [
+      {
+        id: "notif-unread-1",
+        type: "ORDER_PAID",
+        title: "payment successful",
+        message: "your order is paid",
+        entityType: "order",
+        entityId: "order-1",
+        readAt: null,
+        createdAt: "2026-10-06T12:00:00Z",
+      },
+      {
+        id: "notif-read-1",
+        type: "SYSTEM",
+        title: "welcome aboard",
+        message: "thanks for joining varsity connect",
+        entityType: null,
+        entityId: null,
+        readAt: "2026-10-05T12:00:00Z",
+        createdAt: "2026-10-05T12:00:00Z",
+      },
+    ],
+  };
+}
+
+export function resetNotifications() {
+  mockNotifications = seedNotifications();
+}
+
+resetNotifications();
+
+const notificationHandlers = [
+  http.get("*/notifications", ({ request }) => {
+    const token = (request.headers.get("Authorization") ?? "").replace("Bearer ", "");
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const rows = [...(mockNotifications[token] ?? [])].sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt),
+    );
+    return HttpResponse.json({
+      content: rows,
+      page: 0,
+      size: 50,
+      totalElements: rows.length,
+      totalPages: 1,
+      first: true,
+      last: true,
+    });
+  }),
+
+  http.get("*/notifications/unread-count", ({ request }) => {
+    const token = (request.headers.get("Authorization") ?? "").replace("Bearer ", "");
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const count = (mockNotifications[token] ?? []).filter((row) => !row.readAt).length;
+    return HttpResponse.json({ count });
+  }),
+
+  http.post("*/notifications/:id/read", ({ request, params }) => {
+    const token = (request.headers.get("Authorization") ?? "").replace("Bearer ", "");
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const row = (mockNotifications[token] ?? []).find((entry) => entry.id === params.id);
+    if (!row) {
+      return bad(404, "RESOURCE_NOT_FOUND", "notification not found");
+    }
+    row.readAt = new Date().toISOString();
+    return HttpResponse.json(row);
+  }),
+
+  http.post("*/notifications/read-all", ({ request }) => {
+    const token = (request.headers.get("Authorization") ?? "").replace("Bearer ", "");
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const now = new Date().toISOString();
+    for (const row of mockNotifications[token] ?? []) {
+      row.readAt ??= now;
+    }
+    return new HttpResponse(null, { status: 204 });
+  }),
+];
+
+handlers.push(...notificationHandlers);

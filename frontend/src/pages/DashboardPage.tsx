@@ -52,15 +52,16 @@ export function DashboardPage() {
       <p className="rounded-full border border-sage bg-white px-4 py-2 text-center text-xs lowercase text-taupe">
         marketplace, lost &amp; found, and community plug in here next
       </p>
+
       <Link
         to="/profile"
-        className="rounded-xl bg-cocoa px-4 py-3 text-center text-sm lowercase text-white transition hover:opacity-90"
+        className="rounded-xl border border-sage bg-white px-4 py-3 text-center text-sm lowercase text-cocoa transition hover:border-rosewood hover:text-rosewood"
       >
         view my profile
       </Link>
       <Link
         to="/market"
-        className="rounded-xl border border-sage bg-white px-4 py-3 text-center text-sm lowercase text-cocoa transition hover:border-rosewood"
+        className="rounded-xl bg-cocoa px-4 py-3 text-center text-sm lowercase text-white transition hover:opacity-90"
       >
         browse the market
       </Link>
