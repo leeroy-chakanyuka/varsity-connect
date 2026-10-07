@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 import type { AuthUser } from "../api/auth";
 import type { Listing } from "../api/marketplace";
+import type { Order } from "../api/orders";
 
 /* canned campus users, tokens are test-only and never leave jsdom */
 function baseUsers(): Record<string, AuthUser> {
@@ -507,3 +508,105 @@ const cartHandlers = [
 ];
 
 handlers.push(...cartHandlers);
+
+/* ---- mock orders below, frozen at checkout, reset between tests ---- */
+
+let orderCounter = 0;
+let mockOrders: Order[] = [];
+
+export function resetOrders() {
+  orderCounter = 0;
+  mockOrders = [];
+}
+
+const orderHandlers = [
+  http.post("*/orders", async ({ request }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const token = (request.headers.get("Authorization") ?? "").replace("Bearer ", "");
+    const basket = cartView(token);
+    if (basket.items.length === 0) {
+      return bad(400, "CART_EMPTY", "cart is empty");
+    }
+    const body = (await request.json()) as { deliveryMethod?: Order["deliveryMethod"]; paymentMethod?: Order["paymentMethod"] };
+    if (!body.deliveryMethod || !body.paymentMethod) {
+      return bad(400, "VALIDATION_ERROR", "one or more fields are invalid");
+    }
+    /* recheck every row, the shelf may have moved since basketing */
+    for (const item of basket.items) {
+      const listing = mockListings.find((row) => row.id === item.listingId);
+      if (!listing) {
+        return bad(404, "RESOURCE_NOT_FOUND", "listing not found");
+      }
+      if (listing.seller.id === viewer.id) {
+        return bad(403, "FORBIDDEN", "you cannot buy your own listing");
+      }
+      if (listing.status !== "ACTIVE") {
+        return bad(409, "LISTING_NOT_AVAILABLE", "listing is no longer available");
+      }
+    }
+    orderCounter += 1;
+    const created: Order = {
+      id: `order-${orderCounter}`,
+      buyerId: viewer.id,
+      buyerName: viewer.fullName,
+      deliveryMethod: body.deliveryMethod,
+      paymentMethod: body.paymentMethod,
+      subtotal: basket.subtotal,
+      total: basket.subtotal,
+      status: "PENDING_PAYMENT",
+      paidAt: null,
+      completedAt: null,
+      createdAt: new Date().toISOString(),
+      items: basket.items.map((item, index) => {
+        const listing = mockListings.find((row) => row.id === item.listingId)!;
+        listing.status = "RESERVED";
+        return {
+          id: `oi-${orderCounter}-${index}`,
+          listingId: listing.id,
+          title: listing.title,
+          unitPrice: listing.price,
+          sellerId: listing.seller.id,
+          sellerName: listing.seller.fullName,
+          quantity: item.quantity,
+          lineTotal: listing.price * item.quantity,
+        };
+      }),
+    };
+    mockOrders.unshift(created);
+    return HttpResponse.json(created, { status: 201 });
+  }),
+
+  http.get("*/orders", ({ request }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const mine = mockOrders.filter((order) => order.buyerId === viewer.id);
+    return HttpResponse.json({
+      content: mine,
+      page: 0,
+      size: 20,
+      totalElements: mine.length,
+      totalPages: 1,
+      first: true,
+      last: true,
+    });
+  }),
+
+  http.get("*/orders/:id", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const order = mockOrders.find((row) => row.id === params.id);
+    if (!order || order.buyerId !== viewer.id) {
+      return bad(404, "RESOURCE_NOT_FOUND", "order not found");
+    }
+    return HttpResponse.json(order);
+  }),
+];
+
+handlers.push(...orderHandlers);

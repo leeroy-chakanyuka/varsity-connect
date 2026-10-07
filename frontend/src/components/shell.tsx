@@ -41,6 +41,12 @@ export function Shell() {
                 {user.fullName.split(" ")[0]?.toLowerCase()}
               </Link>
               <Link
+                to="/orders"
+                className="text-sm lowercase tracking-wide text-taupe transition-colors hover:text-rosewood"
+              >
+                orders
+              </Link>
+              <Link
                 to="/cart"
                 aria-label={`cart, ${cart?.itemCount ?? 0} items`}
                 className="relative rounded-xl border border-sage px-3 py-1.5 text-sm lowercase text-cocoa transition hover:border-rosewood hover:text-rosewood"

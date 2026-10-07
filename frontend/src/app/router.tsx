@@ -3,11 +3,14 @@ import { ProtectedRoute } from "../components/ProtectedRoute";
 import { Shell } from "../components/shell";
 import { DashboardPage } from "../pages/DashboardPage";
 import { CartPage } from "../pages/CartPage";
+import { CheckoutPage } from "../pages/CheckoutPage";
 import { CreateListingPage } from "../pages/CreateListingPage";
 import { EditListingPage } from "../pages/EditListingPage";
 import { ListingDetailPage } from "../pages/ListingDetailPage";
 import { LoginPage } from "../pages/LoginPage";
 import { MarketplacePage } from "../pages/MarketplacePage";
+import { OrderDetailPage } from "../pages/OrderDetailPage";
+import { OrdersPage } from "../pages/OrdersPage";
 import { MyProfilePage } from "../pages/MyProfilePage";
 import { PublicProfilePage } from "../pages/PublicProfilePage";
 import { RegisterPage } from "../pages/RegisterPage";
@@ -84,6 +87,30 @@ export function Router() {
           element={
             <ProtectedRoute>
               <CartPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="checkout"
+          element={
+            <ProtectedRoute>
+              <CheckoutPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="orders"
+          element={
+            <ProtectedRoute>
+              <OrdersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="orders/:id"
+          element={
+            <ProtectedRoute>
+              <OrderDetailPage />
             </ProtectedRoute>
           }
         />
