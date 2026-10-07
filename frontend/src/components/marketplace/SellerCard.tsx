@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { formatPrice, type Listing } from "../../api/marketplace";
+import { AddToCartButton } from "./AddToCartButton";
 
 /* who sells it, linking to their public card */
 export function SellerCard({ listing }: { listing: Listing }) {
@@ -18,6 +19,9 @@ export function SellerCard({ listing }: { listing: Listing }) {
       <div className="mt-3 border-t border-sage/60 pt-3">
         <p className="text-sm font-semibold text-cocoa">{formatPrice(listing.price)}</p>
         <p className="text-xs lowercase text-taupe">seller rating arrives with reviews</p>
+      </div>
+      <div className="mt-4">
+        <AddToCartButton listing={listing} />
       </div>
     </article>
   );

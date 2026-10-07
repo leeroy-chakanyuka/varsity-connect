@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "../components/ProtectedRoute";
 import { Shell } from "../components/shell";
 import { DashboardPage } from "../pages/DashboardPage";
+import { CartPage } from "../pages/CartPage";
 import { CreateListingPage } from "../pages/CreateListingPage";
 import { EditListingPage } from "../pages/EditListingPage";
 import { ListingDetailPage } from "../pages/ListingDetailPage";
@@ -75,6 +76,14 @@ export function Router() {
           element={
             <ProtectedRoute>
               <EditListingPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="cart"
+          element={
+            <ProtectedRoute>
+              <CartPage />
             </ProtectedRoute>
           }
         />

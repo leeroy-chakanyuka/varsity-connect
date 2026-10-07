@@ -1,10 +1,13 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { useCart } from "../api/cart";
 
 /* minimal shell like stardust nav, lowercase + warm neutrals */
 export function Shell() {
   const { user, ready, logout } = useAuth();
   const navigate = useNavigate();
+  /* badge only for sessions, no token means no basket query */
+  const { data: cart } = useCart();
 
   const onLogout = () => {
     logout();
@@ -36,6 +39,18 @@ export function Shell() {
                 className="text-sm lowercase tracking-wide text-taupe transition-colors hover:text-rosewood"
               >
                 {user.fullName.split(" ")[0]?.toLowerCase()}
+              </Link>
+              <Link
+                to="/cart"
+                aria-label={`cart, ${cart?.itemCount ?? 0} items`}
+                className="relative rounded-xl border border-sage px-3 py-1.5 text-sm lowercase text-cocoa transition hover:border-rosewood hover:text-rosewood"
+              >
+                cart
+                {(cart?.itemCount ?? 0) > 0 && (
+                  <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-rosewood px-1 text-[11px] font-semibold text-white">
+                    {cart?.itemCount}
+                  </span>
+                )}
               </Link>
               <button
                 type="button"

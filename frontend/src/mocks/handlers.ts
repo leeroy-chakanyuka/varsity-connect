@@ -389,3 +389,121 @@ export function resetMarketplace() {
 }
 
 resetMarketplace();
+
+/* ---- mock basket below, one shelf per token, reset between tests ---- */
+
+interface MockCartRow {
+  id: string;
+  listingId: string;
+  qty: number;
+}
+
+let cartCounter = 0;
+let mockCarts: Record<string, MockCartRow[]> = {};
+
+export function resetCart() {
+  cartCounter = 0;
+  mockCarts = {};
+}
+
+function cartView(token: string) {
+  const rows = mockCarts[token] ?? [];
+  const items = rows.flatMap((row) => {
+    const listing = mockListings.find((item) => item.id === row.listingId);
+    if (!listing) {
+      return [];
+    }
+    return [
+      {
+        id: row.id,
+        listingId: listing.id,
+        title: listing.title,
+        sellerName: listing.seller.fullName,
+        price: listing.price,
+        imageUrl: listing.imageUrls[0] ?? null,
+        quantity: row.qty,
+        lineTotal: listing.price * row.qty,
+      },
+    ];
+  });
+  return {
+    id: "mock-cart",
+    items,
+    itemCount: items.length,
+    subtotal: items.reduce((sum, item) => sum + item.lineTotal, 0),
+  };
+}
+
+const cartHandlers = [
+  http.get("*/cart", ({ request }) => {
+    const token = (request.headers.get("Authorization") ?? "").replace("Bearer ", "");
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    return HttpResponse.json(cartView(token));
+  }),
+
+  http.post("*/cart/items", async ({ request }) => {
+    const token = (request.headers.get("Authorization") ?? "").replace("Bearer ", "");
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const body = (await request.json()) as { listingId?: string };
+    const listing = mockListings.find((row) => row.id === body.listingId);
+    if (!listing) {
+      return bad(404, "RESOURCE_NOT_FOUND", "listing not found");
+    }
+    if (listing.seller.id === viewer.id) {
+      return bad(403, "FORBIDDEN", "you cannot add your own listing to your cart");
+    }
+    if (listing.status !== "ACTIVE") {
+      return bad(409, "LISTING_NOT_AVAILABLE", "listing is no longer available");
+    }
+    const rows = (mockCarts[token] ??= []);
+    if (!rows.some((row) => row.listingId === listing.id)) {
+      cartCounter += 1;
+      rows.push({ id: `ci-${cartCounter}`, listingId: listing.id, qty: 1 });
+    }
+    return HttpResponse.json(cartView(token));
+  }),
+
+  http.patch("*/cart/items/:id", async ({ request, params }) => {
+    const token = (request.headers.get("Authorization") ?? "").replace("Bearer ", "");
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const row = (mockCarts[token] ?? []).find((entry) => entry.id === params.id);
+    if (!row) {
+      return bad(404, "RESOURCE_NOT_FOUND", "cart item not found");
+    }
+    const body = (await request.json()) as { quantity?: number };
+    row.qty = body.quantity ?? row.qty;
+    return HttpResponse.json(cartView(token));
+  }),
+
+  http.delete("*/cart/items/:id", ({ request, params }) => {
+    const token = (request.headers.get("Authorization") ?? "").replace("Bearer ", "");
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const rows = mockCarts[token] ?? [];
+    const index = rows.findIndex((entry) => entry.id === params.id);
+    if (index < 0) {
+      return bad(404, "RESOURCE_NOT_FOUND", "cart item not found");
+    }
+    rows.splice(index, 1);
+    return HttpResponse.json(cartView(token));
+  }),
+
+  http.delete("*/cart", ({ request }) => {
+    const token = (request.headers.get("Authorization") ?? "").replace("Bearer ", "");
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    mockCarts[token] = [];
+    return HttpResponse.json(cartView(token));
+  }),
+];
+
+handlers.push(...cartHandlers);
