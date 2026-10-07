@@ -79,3 +79,88 @@ describe("create report", () => {
     expect(await screen.findByText("lost keys")).toBeInTheDocument();
   });
 });
+
+async function reportAs(token: string, type: "LOST" | "FOUND", name: string): Promise<string> {
+  const page = renderLostFound("/lost-found/new", token);
+  await screen.findByLabelText(/^item name$/i);
+  if (type === "FOUND") {
+    fireEvent.click(screen.getByText("i found it"));
+  }
+  fireEvent.change(screen.getByLabelText(/^item name$/i), { target: { value: name } });
+  fireEvent.change(screen.getByLabelText(/^category$/i), { target: { value: "OTHER" } });
+  fireEvent.change(screen.getByLabelText(/description/i), { target: { value: "black leather wallet with student card" } });
+  fireEvent.change(screen.getByLabelText(/^location$/i), { target: { value: "library steps" } });
+  fireEvent.change(screen.getByLabelText(/incident date/i), { target: { value: "2026-10-06" } });
+  fireEvent.click(screen.getByRole("button", { name: /report it/i }));
+  await screen.findByText("black leather wallet with student card");
+  /* in-router path carries the fresh id (memory router never touches window) */
+  const id =
+    screen
+      .getByTestId("location")
+      .textContent?.split("?")[0]
+      .split("/")
+      .pop() ?? "";
+  page.unmount();
+  return id;
+}
+
+describe("potential matches", () => {
+  it("pairs similar reports with a score", async () => {
+    await reportAs("student-token", "LOST", "black wallet");
+    const foundId = await reportAs("vendor-token", "FOUND", "black wallet");
+
+    /* found side sees the pairs right away */
+    renderLostFound(`/lost-found/${foundId}`, "vendor-token");
+    const pills = await screen.findAllByText(/potential match/i);
+    expect(pills.length).toBeGreaterThanOrEqual(1);
+    /* identical pair scores a perfect hundred */
+    expect(screen.getByText(/100%/)).toBeInTheDocument();
+  }, 15000);
+
+  it("accepts from both sides into confirmation", async () => {
+    const lostId = await reportAs("student-token", "LOST", "black wallet");
+    const foundId = await reportAs("vendor-token", "FOUND", "black wallet");
+
+    const lost = renderLostFound(`/lost-found/${lostId}`, "student-token");
+    /* first card is the fresh pair, the seed wallet may pair too */
+    const firstAccepts = await screen.findAllByRole("button", { name: /^accept$/i });
+    fireEvent.click(firstAccepts[0]);
+    expect(await screen.findByText(/you accepted this one/i)).toBeInTheDocument();
+    lost.unmount();
+
+    /* found side accepts the same pair too — both accepted shows */
+    renderLostFound(`/lost-found/${foundId}`, "vendor-token");
+    const secondAccepts = await screen.findAllByRole("button", { name: /^accept$/i });
+    fireEvent.click(secondAccepts[0]);
+    expect(await screen.findByText(/both accepted/i)).toBeInTheDocument();
+  }, 20000);
+});
+
+describe("report detail", () => {
+  it("shows owner controls only to the reporter", async () => {
+    renderLostFound("/lost-found/rep-lost-wallet", "student-token");
+    await screen.findByText("black wallet");
+
+    expect(screen.getByRole("button", { name: /edit report/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /close report/i })).toBeInTheDocument();
+  });
+
+  it("hides owner controls from strangers", async () => {
+    renderLostFound("/lost-found/rep-lost-wallet", "vendor-token");
+    await screen.findByText("black wallet");
+
+    expect(screen.queryByRole("button", { name: /edit report/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /close report/i })).not.toBeInTheDocument();
+  });
+
+  it("closes with a confirm step and leaves the feed", async () => {
+    renderLostFound("/lost-found/rep-lost-wallet", "student-token");
+    await screen.findByRole("button", { name: /^close report$/i });
+
+    fireEvent.click(screen.getByRole("button", { name: /^close report$/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /yes, close it/i }));
+
+    expect(await screen.findByText("lost & found")).toBeInTheDocument();
+    expect(screen.queryByText("black wallet")).not.toBeInTheDocument();
+  });
+});

@@ -20,10 +20,13 @@ public class ReportService {
 
   private final LostFoundReportRepository reports;
   private final UserRepository users;
+  private final MatchingService matching;
 
-  public ReportService(LostFoundReportRepository reports, UserRepository users) {
+  public ReportService(
+      LostFoundReportRepository reports, UserRepository users, MatchingService matching) {
     this.reports = reports;
     this.users = users;
+    this.matching = matching;
   }
 
   @Transactional
@@ -40,7 +43,10 @@ public class ReportService {
             request.location().trim(),
             request.incidentDate(),
             blankToNull(request.imageUrl()));
-    return ReportResponse.from(reports.save(report));
+    ReportResponse created = ReportResponse.from(reports.save(report));
+    /* pairing runs right away, same transaction */
+    matching.matchNewReport(created.id());
+    return created;
   }
 
   @Transactional(readOnly = true)

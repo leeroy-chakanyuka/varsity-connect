@@ -36,6 +36,12 @@ class LostFoundIntegrationTest {
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper mapper;
   @Autowired UserRepository users;
+  @Autowired com.varsityconnect.marketplace.MarketplaceListingRepository listings;
+  @Autowired com.varsityconnect.cart.CartItemRepository cartItems;
+  @Autowired com.varsityconnect.cart.CartRepository carts;
+  @Autowired com.varsityconnect.order.OrderRepository orders;
+  @Autowired com.varsityconnect.payment.PaymentRepository payments;
+  @Autowired com.varsityconnect.lostfound.LostFoundMatchRepository matchRows;
   @Autowired LostFoundReportRepository reports;
 
   private String ownerToken;
@@ -43,7 +49,13 @@ class LostFoundIntegrationTest {
 
   @BeforeEach
   void seed() throws Exception {
+    payments.deleteAll();
+    orders.deleteAll();
+    cartItems.deleteAll();
+    carts.deleteAll();
+    matchRows.deleteAll();
     reports.deleteAll();
+    listings.deleteAll();
     users.deleteAll();
     ownerToken = register("reportowner@cput.ac.za", "22A000001", "STUDENT").get("token").asText();
     strangerToken = register("reportstranger@cput.ac.za", "22A000002", "STUDENT").get("token").asText();

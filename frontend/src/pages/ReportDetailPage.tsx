@@ -9,6 +9,7 @@ import {
   type ReportPayload,
 } from "../api/lostfound";
 import { ReportForm } from "../components/lostfound/ReportForm";
+import { PotentialMatches } from "../components/lostfound/PotentialMatches";
 
 /* one report, owner tools only for the reporter and admins */
 export function ReportDetailPage() {
@@ -123,6 +124,8 @@ export function ReportDetailPage() {
           </div>
         </dl>
       </article>
+
+      {mine && data.status !== "CLOSED" && <PotentialMatches reportId={data.id} />}
 
       {mine && !editing && (
         <div className="flex flex-wrap gap-2">

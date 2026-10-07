@@ -135,3 +135,51 @@ export function useCloseReport() {
     },
   });
 }
+
+export interface MatchDecision {
+  id: string;
+  reportId: string;
+  otherReportId: string;
+  otherItemName: string;
+  otherDescription: string;
+  otherLocation: string;
+  score: number;
+  myDecision: "PENDING" | "ACCEPTED" | "REJECTED";
+  otherDecision: "PENDING" | "ACCEPTED" | "REJECTED";
+  createdAt: string;
+}
+
+export const matchKeys = {
+  forReport: (reportId: string) => ["lostfound", "matches", reportId] as const,
+};
+
+export async function fetchMatches(reportId: string): Promise<MatchDecision[]> {
+  const { data } = await api.get<MatchDecision[]>(`/lost-found/reports/${reportId}/matches`);
+  return data;
+}
+
+export async function decideMatch(matchId: string, decision: "ACCEPT" | "REJECT"): Promise<MatchDecision> {
+  const { data } = await api.post<MatchDecision>(`/lost-found/matches/${matchId}/decision`, { decision });
+  return data;
+}
+
+export function useMatches(reportId: string | undefined) {
+  return useQuery({
+    queryKey: matchKeys.forReport(reportId ?? ""),
+    queryFn: () => fetchMatches(reportId ?? ""),
+    enabled: !!reportId,
+    retry: false,
+  });
+}
+
+export function useDecideMatch(reportId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ matchId, decision }: { matchId: string; decision: "ACCEPT" | "REJECT" }) =>
+      decideMatch(matchId, decision),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: matchKeys.forReport(reportId) });
+      queryClient.invalidateQueries({ queryKey: reportKeys.all });
+    },
+  });
+}

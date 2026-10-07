@@ -796,6 +796,7 @@ const reportHandlers = [
       updatedAt: new Date().toISOString(),
     };
     mockReports.unshift(report);
+    pairNewReport(report);
     return HttpResponse.json(report, { status: 201 });
   }),
 
@@ -852,3 +853,164 @@ const reportHandlers = [
 ];
 
 handlers.push(...reportHandlers);
+
+/* ---- mock matches below, deterministic pairing on every create ---- */
+
+interface MockMatch {
+  id: string;
+  lostId: string;
+  foundId: string;
+  score: number;
+  lostDecision: "PENDING" | "ACCEPTED" | "REJECTED";
+  foundDecision: "PENDING" | "ACCEPTED" | "REJECTED";
+}
+
+let matchCounter = 0;
+let mockMatches: MockMatch[] = [];
+
+export function resetMatches() {
+  matchCounter = 0;
+  mockMatches = [];
+}
+
+function tokens(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]/g, " ")
+      .split(/\s+/)
+      .filter((word) => word && !["the", "a", "an", "and", "or", "of", "lost", "found"].includes(word)),
+  );
+}
+
+function jaccard(left: string, right: string): number {
+  const a = tokens(left);
+  const b = tokens(right);
+  if (a.size === 0 && b.size === 0) return 0;
+  const union = new Set([...a, ...b]);
+  const both = [...a].filter((word) => b.has(word)).length;
+  return both / union.size;
+}
+
+function pairScore(lost: Report, found: Report): number {
+  const category = lost.category === found.category ? 1 : 0;
+  const description = jaccard(lost.description, found.description);
+  const location = jaccard(lost.location, found.location);
+  const days = Math.abs(
+    (Date.parse(lost.incidentDate) - Date.parse(found.incidentDate)) / 86400000,
+  );
+  const date = days === 0 ? 1 : days <= 1 ? 0.9 : days <= 3 ? 0.75 : days <= 7 ? 0.5 : days <= 14 ? 0.25 : 0;
+  return Math.round((0.35 * category + 0.35 * description + 0.2 * location + 0.1 * date) * 10000) / 100;
+}
+
+function pairNewReport(report: Report) {
+  for (const candidate of mockReports) {
+    if (candidate.id === report.id) continue;
+    if (candidate.type === report.type) continue;
+    if (candidate.owner.id === report.owner.id) continue;
+    if (candidate.status !== "OPEN" && candidate.status !== "MATCH_PENDING") continue;
+    const lost = report.type === "LOST" ? report : candidate;
+    const found = report.type === "LOST" ? candidate : report;
+    if (mockMatches.some((row) => row.lostId === lost.id && row.foundId === found.id)) continue;
+    if (pairScore(lost, found) < 55) continue;
+    matchCounter += 1;
+    mockMatches.push({
+      id: `match-${matchCounter}`,
+      lostId: lost.id,
+      foundId: found.id,
+      score: pairScore(lost, found),
+      lostDecision: "PENDING",
+      foundDecision: "PENDING",
+    });
+    report.status = "MATCH_PENDING";
+    if (candidate.status === "OPEN") {
+      candidate.status = "MATCH_PENDING";
+    }
+  }
+}
+
+function matchView(match: MockMatch, viewingId: string) {
+  const viewingLost = match.lostId === viewingId;
+  const otherId = viewingLost ? match.foundId : match.lostId;
+  const other = mockReports.find((row) => row.id === otherId)!;
+  return {
+    id: match.id,
+    reportId: viewingId,
+    otherReportId: other.id,
+    otherItemName: other.itemName,
+    otherDescription: other.description,
+    otherLocation: other.location,
+    score: match.score,
+    myDecision: viewingLost ? match.lostDecision : match.foundDecision,
+    otherDecision: viewingLost ? match.foundDecision : match.lostDecision,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+const matchHandlers = [
+  http.get("*/lost-found/reports/:id/matches", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const report = mockReports.find((row) => row.id === params.id);
+    if (!report) {
+      return bad(404, "RESOURCE_NOT_FOUND", "report not found");
+    }
+    if (report.owner.id !== viewer.id && viewer.role !== "ADMIN") {
+      return bad(403, "FORBIDDEN", "only the reporter may view these matches");
+    }
+    const rows = mockMatches.filter((row) => row.lostId === report.id || row.foundId === report.id);
+    return HttpResponse.json(rows.map((row) => matchView(row, report.id)));
+  }),
+
+  http.post("*/lost-found/matches/:id/decision", async ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const match = mockMatches.find((row) => row.id === params.id);
+    if (!match) {
+      return bad(404, "RESOURCE_NOT_FOUND", "match not found");
+    }
+    const lost = mockReports.find((row) => row.id === match.lostId)!;
+    const found = mockReports.find((row) => row.id === match.foundId)!;
+    const lostSide = lost.owner.id === viewer.id;
+    const foundSide = found.owner.id === viewer.id;
+    if (!lostSide && !foundSide) {
+      return bad(403, "FORBIDDEN", "only the involved owners may decide");
+    }
+    const current = lostSide ? match.lostDecision : match.foundDecision;
+    if (current !== "PENDING") {
+      return bad(409, "MATCH_ALREADY_DECIDED", "you already decided on this match");
+    }
+    const body = (await request.json()) as { decision?: string };
+    const next = body.decision === "ACCEPT" ? "ACCEPTED" : "REJECTED";
+    if (lostSide) {
+      match.lostDecision = next;
+    } else {
+      match.foundDecision = next;
+    }
+    if (match.lostDecision === "ACCEPTED" && match.foundDecision === "ACCEPTED") {
+      lost.status = "MATCHED";
+      found.status = "MATCHED";
+    } else if (match.lostDecision === "REJECTED" || match.foundDecision === "REJECTED") {
+      for (const report of [lost, found]) {
+        if (report.status !== "MATCH_PENDING") continue;
+        const live = mockMatches.some(
+          (row) =>
+            row.id !== match.id &&
+            (row.lostId === report.id || row.foundId === report.id) &&
+            row.lostDecision !== "REJECTED" &&
+            row.foundDecision !== "REJECTED",
+        );
+        if (!live) {
+          report.status = "OPEN";
+        }
+      }
+    }
+    return HttpResponse.json(matchView(match, lostSide ? lost.id : found.id));
+  }),
+];
+
+handlers.push(...matchHandlers);
