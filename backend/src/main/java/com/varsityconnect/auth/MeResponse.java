@@ -16,4 +16,6 @@ public record MeResponse(
     String profileImageUrl,
     UserRole role,
     boolean enabled,
+    double averageRating,
+    long reviewCount,
     Instant createdAt) {}

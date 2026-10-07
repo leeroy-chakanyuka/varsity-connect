@@ -3,6 +3,8 @@ import { ProtectedRoute } from "../components/ProtectedRoute";
 import { Shell } from "../components/shell";
 import { DashboardPage } from "../pages/DashboardPage";
 import { LoginPage } from "../pages/LoginPage";
+import { MyProfilePage } from "../pages/MyProfilePage";
+import { PublicProfilePage } from "../pages/PublicProfilePage";
 import { RegisterPage } from "../pages/RegisterPage";
 import { RoleSelectPage } from "../pages/RoleSelectPage";
 import { SplashPage } from "../pages/SplashPage";
@@ -21,6 +23,22 @@ export function Router() {
           element={
             <ProtectedRoute>
               <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="profile"
+          element={
+            <ProtectedRoute>
+              <MyProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="profile/:id"
+          element={
+            <ProtectedRoute>
+              <PublicProfilePage />
             </ProtectedRoute>
           }
         />

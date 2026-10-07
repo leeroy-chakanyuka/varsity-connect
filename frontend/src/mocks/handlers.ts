@@ -69,6 +69,14 @@ interface RegisterBody {
   faculty?: string;
 }
 
+interface PatchBody {
+  fullName?: string;
+  faculty?: string | null;
+  phoneNumber?: string | null;
+  bio?: string | null;
+  profileImageUrl?: string | null;
+}
+
 const bad = (status: number, code: string, message: string, fieldErrors?: Record<string, string>) =>
   HttpResponse.json({ status, code, message, fieldErrors, path: "/api/v1/auth" }, { status });
 
@@ -113,5 +121,45 @@ export const handlers = [
       return bad(401, "UNAUTHORIZED", "authentication required");
     }
     return HttpResponse.json(user);
+  }),
+
+  /* profile doors mirror /users/me + /users/:id on the backend */
+  http.get("*/users/me", ({ request }) => {
+    const user = userFor(request);
+    if (!user) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    return HttpResponse.json(user);
+  }),
+
+  http.patch("*/users/me", async ({ request }) => {
+    const user = userFor(request);
+    if (!user) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const body = (await request.json()) as PatchBody;
+    /* allowlist only, same as the backend service */
+    if (body.fullName !== undefined && body.fullName.trim()) {
+      user.fullName = body.fullName.trim();
+    }
+    for (const field of ["faculty", "phoneNumber", "bio", "profileImageUrl"] as const) {
+      if (body[field] !== undefined) {
+        const value = body[field]?.trim();
+        user[field] = value ? value : null;
+      }
+    }
+    return HttpResponse.json(user);
+  }),
+
+  http.get("*/users/:id", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const found = Object.values(usersByToken).find((u) => u.id === params.id);
+    if (!found) {
+      return bad(404, "RESOURCE_NOT_FOUND", "user not found");
+    }
+    return HttpResponse.json(found);
   }),
 ];

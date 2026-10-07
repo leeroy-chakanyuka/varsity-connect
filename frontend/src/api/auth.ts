@@ -14,6 +14,8 @@ export interface AuthUser {
   profileImageUrl: string | null;
   role: Role;
   enabled: boolean;
+  averageRating: number;
+  reviewCount: number;
   createdAt: string;
 }
 

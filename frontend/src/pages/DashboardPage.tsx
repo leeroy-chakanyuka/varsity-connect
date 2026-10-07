@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 /* real data from /auth/me, real modules arrive with their stages */
@@ -51,6 +52,12 @@ export function DashboardPage() {
       <p className="rounded-full border border-sage bg-white px-4 py-2 text-center text-xs lowercase text-taupe">
         marketplace, lost &amp; found, and community plug in here next
       </p>
+      <Link
+        to="/profile"
+        className="rounded-xl bg-cocoa px-4 py-3 text-center text-sm lowercase text-white transition hover:opacity-90"
+      >
+        view my profile
+      </Link>
     </section>
   );
 }
