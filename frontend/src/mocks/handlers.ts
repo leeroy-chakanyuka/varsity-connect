@@ -1,5 +1,6 @@
 import { http, HttpResponse } from "msw";
 import type { AuthUser } from "../api/auth";
+import type { Listing } from "../api/marketplace";
 
 /* canned campus users, tokens are test-only and never leave jsdom */
 function baseUsers(): Record<string, AuthUser> {
@@ -14,6 +15,8 @@ function baseUsers(): Record<string, AuthUser> {
     profileImageUrl: null,
     role: "STUDENT",
     enabled: true,
+    averageRating: 0,
+    reviewCount: 0,
     createdAt: "2026-10-05T12:00:00Z",
   };
 
@@ -179,4 +182,210 @@ export const handlers = [
       ],
     });
   }),
+
+  /* marketplace doors, small in-memory shelf reset between tests */
+  http.get("*/marketplace/listings", ({ request }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const url = new URL(request.url);
+    const q = (name: string) => url.searchParams.get(name);
+
+    const search = (q("search") ?? "").toLowerCase();
+    let rows = mockListings.filter((listing) => {
+      if (search && !`${listing.title} ${listing.description}`.toLowerCase().includes(search)) {
+        return false;
+      }
+      if (q("category") && listing.category !== q("category")) return false;
+      if (q("condition") && listing.condition !== q("condition")) return false;
+      if (q("minPrice") && listing.price < Number(q("minPrice"))) return false;
+      if (q("maxPrice") && listing.price > Number(q("maxPrice"))) return false;
+      if (q("sellerId") && listing.seller.id !== q("sellerId")) return false;
+      const status = q("status") ?? "ACTIVE";
+      if (listing.status !== status) return false;
+      return true;
+    });
+
+    const [sortProp, sortDir] = (q("sort") ?? "createdAt,desc").split(",");
+    rows = [...rows].sort((a, b) => {
+      const left = sortProp === "price" ? a.price : Date.parse(a.createdAt);
+      const right = sortProp === "price" ? b.price : Date.parse(b.createdAt);
+      return sortDir === "asc" ? left - right : right - left;
+    });
+
+    const page = Number(q("page") ?? "0");
+    const size = Number(q("size") ?? "12");
+    const totalPages = Math.max(1, Math.ceil(rows.length / size));
+    const content = rows.slice(page * size, page * size + size);
+    return HttpResponse.json({
+      content,
+      page,
+      size,
+      totalElements: rows.length,
+      totalPages,
+      first: page === 0,
+      last: page >= totalPages - 1,
+    });
+  }),
+
+  http.post("*/marketplace/listings", async ({ request }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const body = (await request.json()) as Partial<Listing>;
+    const fieldErrors: Record<string, string> = {};
+    if (!body.title?.trim() || body.title.trim().length < 3) {
+      fieldErrors.title = "title must be 3 to 150 characters";
+    }
+    if (body.price === undefined || body.price === null || Number.isNaN(Number(body.price))) {
+      fieldErrors.price = "price is required";
+    } else if (Number(body.price) < 0) {
+      fieldErrors.price = "price cannot be negative";
+    }
+    if (body.imageUrls && body.imageUrls.length > 5) {
+      fieldErrors.imageUrls = "at most 5 images allowed";
+    }
+    if (Object.keys(fieldErrors).length > 0) {
+      return bad(400, "VALIDATION_ERROR", "one or more fields are invalid", fieldErrors);
+    }
+    mockCounter += 1;
+    const listing: Listing = {
+      id: `listing-new-${mockCounter}`,
+      seller: { id: viewer.id, fullName: viewer.fullName },
+      title: body.title!.trim(),
+      description: body.description ?? "",
+      price: Number(body.price),
+      category: (body.category as Listing["category"]) ?? "OTHER",
+      condition: (body.condition as Listing["condition"]) ?? "GOOD",
+      location: body.location ?? null,
+      status: "ACTIVE",
+      imageUrls: body.imageUrls ?? [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockListings.unshift(listing);
+    return HttpResponse.json(listing, { status: 201 });
+  }),
+
+  http.get("*/marketplace/listings/:id", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const listing = mockListings.find((row) => row.id === params.id);
+    if (
+      !listing ||
+      (listing.status !== "ACTIVE" &&
+        listing.seller.id !== viewer.id &&
+        viewer.role !== "ADMIN")
+    ) {
+      return bad(404, "RESOURCE_NOT_FOUND", "listing not found");
+    }
+    return HttpResponse.json(listing);
+  }),
+
+  http.patch("*/marketplace/listings/:id", async ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const listing = mockListings.find((row) => row.id === params.id);
+    if (!listing) {
+      return bad(404, "RESOURCE_NOT_FOUND", "listing not found");
+    }
+    if (listing.seller.id !== viewer.id && viewer.role !== "ADMIN") {
+      return bad(403, "FORBIDDEN", "only the seller may edit this listing");
+    }
+    const body = (await request.json()) as Partial<Listing>;
+    Object.assign(listing, {
+      ...(body.title !== undefined ? { title: body.title } : {}),
+      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.price !== undefined ? { price: body.price } : {}),
+      ...(body.category !== undefined ? { category: body.category } : {}),
+      ...(body.condition !== undefined ? { condition: body.condition } : {}),
+      ...(body.location !== undefined ? { location: body.location } : {}),
+      ...(body.imageUrls !== undefined ? { imageUrls: body.imageUrls } : {}),
+    });
+    return HttpResponse.json(listing);
+  }),
+
+  http.delete("*/marketplace/listings/:id", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const listing = mockListings.find((row) => row.id === params.id);
+    if (!listing) {
+      return bad(404, "RESOURCE_NOT_FOUND", "listing not found");
+    }
+    if (listing.seller.id !== viewer.id && viewer.role !== "ADMIN") {
+      return bad(403, "FORBIDDEN", "only the seller may archive this listing");
+    }
+    listing.status = "ARCHIVED";
+    return HttpResponse.json(listing);
+  }),
 ];
+
+/* ---- mock shelf below, rebuilt from the canned users on every reset ---- */
+
+function seedMarketplace(): Listing[] {
+  const student = usersByToken["student-token"];
+  const vendor = usersByToken["vendor-token"];
+  const day = (n: number) => new Date(Date.UTC(2026, 9, n)).toISOString();
+  return [
+    {
+      id: "listing-calc",
+      seller: { id: student.id, fullName: student.fullName },
+      title: "calculus textbook",
+      description: "barely used stewart calculus",
+      price: 350,
+      category: "TEXTBOOKS",
+      condition: "LIKE_NEW",
+      location: "bellville campus",
+      status: "ACTIVE",
+      imageUrls: ["/uploads/listing/calc.jpg"],
+      createdAt: day(5),
+      updatedAt: day(5),
+    },
+    {
+      id: "listing-laptop",
+      seller: { id: vendor.id, fullName: vendor.fullName },
+      title: "dell laptop",
+      description: "i5 with fresh battery",
+      price: 4500,
+      category: "ELECTRONICS",
+      condition: "GOOD",
+      location: null,
+      status: "ACTIVE",
+      imageUrls: [],
+      createdAt: day(4),
+      updatedAt: day(4),
+    },
+    {
+      id: "listing-jacket",
+      seller: { id: student.id, fullName: student.fullName },
+      title: "winter jacket",
+      description: "warm jacket size medium",
+      price: 600,
+      category: "CLOTHING",
+      condition: "FAIR",
+      location: "res lobby",
+      status: "ACTIVE",
+      imageUrls: [],
+      createdAt: day(3),
+      updatedAt: day(3),
+    },
+  ];
+}
+
+let mockCounter = 0;
+let mockListings: Listing[] = [];
+
+export function resetMarketplace() {
+  mockCounter = 0;
+  mockListings = seedMarketplace();
+}
+
+resetMarketplace();

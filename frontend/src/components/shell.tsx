@@ -23,6 +23,12 @@ export function Shell() {
         </Link>
 
         <div className="flex items-center gap-4">
+          <Link
+            to="/market"
+            className="text-sm lowercase tracking-wide text-taupe transition-colors hover:text-rosewood"
+          >
+            market
+          </Link>
           {ready && user ? (
             <>
               <Link

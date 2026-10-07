@@ -2,7 +2,11 @@ import { Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "../components/ProtectedRoute";
 import { Shell } from "../components/shell";
 import { DashboardPage } from "../pages/DashboardPage";
+import { CreateListingPage } from "../pages/CreateListingPage";
+import { EditListingPage } from "../pages/EditListingPage";
+import { ListingDetailPage } from "../pages/ListingDetailPage";
 import { LoginPage } from "../pages/LoginPage";
+import { MarketplacePage } from "../pages/MarketplacePage";
 import { MyProfilePage } from "../pages/MyProfilePage";
 import { PublicProfilePage } from "../pages/PublicProfilePage";
 import { RegisterPage } from "../pages/RegisterPage";
@@ -39,6 +43,38 @@ export function Router() {
           element={
             <ProtectedRoute>
               <PublicProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="market"
+          element={
+            <ProtectedRoute>
+              <MarketplacePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="market/new"
+          element={
+            <ProtectedRoute>
+              <CreateListingPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="market/:id"
+          element={
+            <ProtectedRoute>
+              <ListingDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="market/:id/edit"
+          element={
+            <ProtectedRoute>
+              <EditListingPage />
             </ProtectedRoute>
           }
         />

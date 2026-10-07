@@ -58,6 +58,12 @@ export function DashboardPage() {
       >
         view my profile
       </Link>
+      <Link
+        to="/market"
+        className="rounded-xl border border-sage bg-white px-4 py-3 text-center text-sm lowercase text-cocoa transition hover:border-rosewood"
+      >
+        browse the market
+      </Link>
     </section>
   );
 }
