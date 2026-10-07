@@ -162,4 +162,21 @@ export const handlers = [
     }
     return HttpResponse.json(found);
   }),
+
+  /* upload door, hands back a canned url per test */
+  http.post("*/media/uploads", ({ request }) => {
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    return HttpResponse.json({
+      files: [
+        {
+          filename: "mock-photo.jpg",
+          url: "/uploads/listing/mock-photo.jpg",
+          contentType: "image/jpeg",
+          size: 4,
+        },
+      ],
+    });
+  }),
 ];
