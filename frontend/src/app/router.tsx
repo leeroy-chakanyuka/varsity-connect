@@ -5,13 +5,16 @@ import { DashboardPage } from "../pages/DashboardPage";
 import { CartPage } from "../pages/CartPage";
 import { CheckoutPage } from "../pages/CheckoutPage";
 import { CreateListingPage } from "../pages/CreateListingPage";
+import { CreateReportPage } from "../pages/CreateReportPage";
 import { EditListingPage } from "../pages/EditListingPage";
 import { ListingDetailPage } from "../pages/ListingDetailPage";
 import { LoginPage } from "../pages/LoginPage";
 import { MarketplacePage } from "../pages/MarketplacePage";
+import { LostFoundPage } from "../pages/LostFoundPage";
 import { OrderDetailPage } from "../pages/OrderDetailPage";
 import { OrdersPage } from "../pages/OrdersPage";
 import { PaymentResultPage } from "../pages/PaymentResultPage";
+import { ReportDetailPage } from "../pages/ReportDetailPage";
 import { MyProfilePage } from "../pages/MyProfilePage";
 import { PublicProfilePage } from "../pages/PublicProfilePage";
 import { RegisterPage } from "../pages/RegisterPage";
@@ -120,6 +123,30 @@ export function Router() {
           element={
             <ProtectedRoute>
               <PaymentResultPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="lost-found"
+          element={
+            <ProtectedRoute>
+              <LostFoundPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="lost-found/new"
+          element={
+            <ProtectedRoute>
+              <CreateReportPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="lost-found/:id"
+          element={
+            <ProtectedRoute>
+              <ReportDetailPage />
             </ProtectedRoute>
           }
         />

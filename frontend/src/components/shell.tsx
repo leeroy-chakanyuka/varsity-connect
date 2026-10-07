@@ -32,6 +32,12 @@ export function Shell() {
           >
             market
           </Link>
+          <Link
+            to="/lost-found"
+            className="text-sm lowercase tracking-wide text-taupe transition-colors hover:text-rosewood"
+          >
+            lost &amp; found
+          </Link>
           {ready && user ? (
             <>
               <Link

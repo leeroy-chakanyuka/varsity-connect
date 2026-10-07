@@ -3,6 +3,7 @@ import type { AuthUser } from "../api/auth";
 import type { Listing } from "../api/marketplace";
 import type { Order } from "../api/orders";
 import type { PaymentResult } from "../api/payments";
+import type { Report } from "../api/lostfound";
 
 /* canned campus users, tokens are test-only and never leave jsdom */
 function baseUsers(): Record<string, AuthUser> {
@@ -676,3 +677,178 @@ const paymentHandlers = [
 ];
 
 handlers.push(...paymentHandlers);
+
+/* ---- mock reports below, rebuilt on every reset ---- */
+
+let reportCounter = 0;
+let mockReports: Report[] = [];
+
+function seedReports(): Report[] {
+  const student = usersByToken["student-token"];
+  const vendor = usersByToken["vendor-token"];
+  return [
+    {
+      id: "rep-lost-wallet",
+      owner: { id: student.id, fullName: student.fullName },
+      type: "LOST",
+      itemName: "black wallet",
+      category: "OTHER",
+      description: "lost near the library steps",
+      location: "library steps",
+      incidentDate: "2026-10-01",
+      imageUrl: null,
+      status: "OPEN",
+      createdAt: "2026-10-02T12:00:00Z",
+      updatedAt: "2026-10-02T12:00:00Z",
+    },
+    {
+      id: "rep-found-laptop",
+      owner: { id: vendor.id, fullName: vendor.fullName },
+      type: "FOUND",
+      itemName: "silver laptop",
+      category: "ELECTRONICS",
+      description: "found in lab 3, sticker on lid",
+      location: "engineering lab 3",
+      incidentDate: "2026-10-03",
+      imageUrl: null,
+      status: "OPEN",
+      createdAt: "2026-10-04T12:00:00Z",
+      updatedAt: "2026-10-04T12:00:00Z",
+    },
+  ];
+}
+
+export function resetReports() {
+  reportCounter = 0;
+  mockReports = seedReports();
+}
+
+resetReports();
+
+const reportHandlers = [
+  http.get("*/lost-found/reports", ({ request }) => {
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const url = new URL(request.url);
+    const q = (name: string) => url.searchParams.get(name);
+    const search = (q("search") ?? "").toLowerCase();
+
+    let rows = mockReports.filter((report) => {
+      if (search && !`${report.itemName} ${report.description}`.toLowerCase().includes(search)) {
+        return false;
+      }
+      if (q("type") && report.type !== q("type")) return false;
+      if (q("category") && report.category !== q("category")) return false;
+      if (q("location") && !report.location.toLowerCase().includes((q("location") ?? "").toLowerCase())) {
+        return false;
+      }
+      if (q("status")) {
+        if (report.status !== q("status")) return false;
+      } else if (report.status === "CLOSED") {
+        return false;
+      }
+      return true;
+    });
+
+    rows = [...rows].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    const page = Number(q("page") ?? "0");
+    const size = Number(q("size") ?? "12");
+    const totalPages = Math.max(1, Math.ceil(rows.length / size));
+    return HttpResponse.json({
+      content: rows.slice(page * size, page * size + size),
+      page,
+      size,
+      totalElements: rows.length,
+      totalPages,
+      first: page === 0,
+      last: page >= totalPages - 1,
+    });
+  }),
+
+  http.post("*/lost-found/reports", async ({ request }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const body = (await request.json()) as Partial<Report>;
+    const fieldErrors: Record<string, string> = {};
+    if (!body.itemName?.trim()) fieldErrors.itemName = "item name is required";
+    if (!body.description?.trim()) fieldErrors.description = "description is required";
+    if (!body.location?.trim()) fieldErrors.location = "location is required";
+    if (!body.type) fieldErrors.type = "type is required";
+    if (Object.keys(fieldErrors).length > 0) {
+      return bad(400, "VALIDATION_ERROR", "one or more fields are invalid", fieldErrors);
+    }
+    reportCounter += 1;
+    const report: Report = {
+      id: `rep-new-${reportCounter}`,
+      owner: { id: viewer.id, fullName: viewer.fullName },
+      type: (body.type as Report["type"]) ?? "LOST",
+      itemName: body.itemName!.trim(),
+      category: (body.category as Report["category"]) ?? "OTHER",
+      description: body.description!.trim(),
+      location: body.location!.trim(),
+      incidentDate: body.incidentDate ?? "2026-10-05",
+      imageUrl: body.imageUrl ?? null,
+      status: "OPEN",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockReports.unshift(report);
+    return HttpResponse.json(report, { status: 201 });
+  }),
+
+  http.get("*/lost-found/reports/:id", ({ request, params }) => {
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const report = mockReports.find((row) => row.id === params.id);
+    if (!report) {
+      return bad(404, "RESOURCE_NOT_FOUND", "report not found");
+    }
+    return HttpResponse.json(report);
+  }),
+
+  http.patch("*/lost-found/reports/:id", async ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const report = mockReports.find((row) => row.id === params.id);
+    if (!report) {
+      return bad(404, "RESOURCE_NOT_FOUND", "report not found");
+    }
+    if (report.owner.id !== viewer.id && viewer.role !== "ADMIN") {
+      return bad(403, "FORBIDDEN", "only the reporter may edit this report");
+    }
+    const body = (await request.json()) as Partial<Report>;
+    Object.assign(report, {
+      ...(body.itemName !== undefined ? { itemName: body.itemName } : {}),
+      ...(body.category !== undefined ? { category: body.category } : {}),
+      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.location !== undefined ? { location: body.location } : {}),
+      ...(body.incidentDate !== undefined ? { incidentDate: body.incidentDate } : {}),
+      ...(body.imageUrl !== undefined ? { imageUrl: body.imageUrl } : {}),
+    });
+    return HttpResponse.json(report);
+  }),
+
+  http.delete("*/lost-found/reports/:id", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const report = mockReports.find((row) => row.id === params.id);
+    if (!report) {
+      return bad(404, "RESOURCE_NOT_FOUND", "report not found");
+    }
+    if (report.owner.id !== viewer.id && viewer.role !== "ADMIN") {
+      return bad(403, "FORBIDDEN", "only the reporter may close this report");
+    }
+    report.status = "CLOSED";
+    return HttpResponse.json(report);
+  }),
+];
+
+handlers.push(...reportHandlers);

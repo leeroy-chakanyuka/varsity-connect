@@ -1,7 +1,7 @@
 import { cleanup, configure } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterAll, afterEach, beforeAll } from "vitest";
-import { resetCart, resetMarketplace, resetMockUsers, resetOrders, resetPayments } from "./mocks/handlers";
+import { resetCart, resetMarketplace, resetMockUsers, resetOrders, resetPayments, resetReports } from "./mocks/handlers";
 
 /* loaded ci-style runs starve jsdom timers, give queries room */
 configure({ asyncUtilTimeout: 8000 });
@@ -18,6 +18,7 @@ afterEach(() => {
   resetCart();
   resetOrders();
   resetPayments();
+  resetReports();
   sessionStorage.clear();
 });
 afterAll(() => server.close());
