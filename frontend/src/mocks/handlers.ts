@@ -5,6 +5,7 @@ import type { Order } from "../api/orders";
 import type { PaymentResult } from "../api/payments";
 import type { Report } from "../api/lostfound";
 import type { SupportOffer, SupportRequest } from "../api/support";
+import type { Post, PostComment } from "../api/community";
 
 /* canned campus users, tokens are test-only and never leave jsdom */
 function baseUsers(): Record<string, AuthUser> {
@@ -1287,3 +1288,202 @@ const supportHandlers = [
 ];
 
 handlers.push(...supportHandlers);
+
+/* ---- mock wall below, threads plus flat replies, reset between tests ---- */
+
+let postCounter = 0;
+let commentCounter = 0;
+let mockPosts: Post[] = [];
+let mockComments: PostComment[] = [];
+
+function seedCommunity(): Post[] {
+  const student = usersByToken["student-token"];
+  const vendor = usersByToken["vendor-token"];
+  return [
+    {
+      id: "post-quiet",
+      author: { id: student.id, fullName: student.fullName },
+      title: "quiet thread",
+      body: "nobody replies here",
+      imageUrl: null,
+      pinned: false,
+      commentCount: 0,
+      createdAt: "2026-10-03T12:00:00Z",
+      updatedAt: "2026-10-03T12:00:00Z",
+    },
+    {
+      id: "post-nsfas",
+      author: { id: vendor.id, fullName: vendor.fullName },
+      title: "nsfas allowance dates",
+      body: "when do allowances drop this term",
+      imageUrl: null,
+      pinned: false,
+      commentCount: 0,
+      createdAt: "2026-10-04T12:00:00Z",
+      updatedAt: "2026-10-04T12:00:00Z",
+    },
+  ];
+}
+
+export function resetCommunity() {
+  postCounter = 0;
+  commentCounter = 0;
+  mockPosts = seedCommunity();
+  mockComments = [];
+}
+
+resetCommunity();
+
+const communityHandlers = [
+  http.get("*/community/posts", ({ request }) => {
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const url = new URL(request.url);
+    const q = (name: string) => url.searchParams.get(name);
+    const search = (q("search") ?? "").toLowerCase();
+    const sort = q("sort") ?? "latest";
+
+    let rows = mockPosts.filter((post) => {
+      if (search && !`${post.title} ${post.body}`.toLowerCase().includes(search)) {
+        return false;
+      }
+      return true;
+    });
+    rows = [...rows].sort((a, b) => {
+      if (sort === "trending") {
+        if (b.commentCount !== a.commentCount) return b.commentCount - a.commentCount;
+      }
+      return Date.parse(b.createdAt) - Date.parse(a.createdAt);
+    });
+
+    const page = Number(q("page") ?? "0");
+    const size = Number(q("size") ?? "20");
+    const totalPages = Math.max(1, Math.ceil(rows.length / size));
+    return HttpResponse.json({
+      content: rows.slice(page * size, page * size + size),
+      page,
+      size,
+      totalElements: rows.length,
+      totalPages,
+      first: page === 0,
+      last: page >= totalPages - 1,
+    });
+  }),
+
+  http.post("*/community/posts", async ({ request }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const body = (await request.json()) as Partial<Post>;
+    const fieldErrors: Record<string, string> = {};
+    if (!body.title?.trim()) fieldErrors.title = "title is required";
+    if (!body.body?.trim()) fieldErrors.body = "body is required";
+    if (Object.keys(fieldErrors).length > 0) {
+      return bad(400, "VALIDATION_ERROR", "one or more fields are invalid", fieldErrors);
+    }
+    postCounter += 1;
+    const post: Post = {
+      id: `post-new-${postCounter}`,
+      author: { id: viewer.id, fullName: viewer.fullName },
+      title: body.title!.trim(),
+      body: body.body!.trim(),
+      imageUrl: body.imageUrl?.trim() ? body.imageUrl.trim() : null,
+      pinned: false,
+      commentCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockPosts.unshift(post);
+    return HttpResponse.json(post, { status: 201 });
+  }),
+
+  http.get("*/community/posts/:id", ({ request, params }) => {
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const post = mockPosts.find((row) => row.id === params.id);
+    if (!post) {
+      return bad(404, "RESOURCE_NOT_FOUND", "post not found");
+    }
+    return HttpResponse.json(post);
+  }),
+
+  http.patch("*/community/posts/:id", async ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const post = mockPosts.find((row) => row.id === params.id);
+    if (!post) {
+      return bad(404, "RESOURCE_NOT_FOUND", "post not found");
+    }
+    if (post.author.id !== viewer.id) {
+      return bad(403, "FORBIDDEN", "only the author may edit this post");
+    }
+    const body = (await request.json()) as Partial<Post>;
+    Object.assign(post, {
+      ...(body.title !== undefined ? { title: body.title } : {}),
+      ...(body.body !== undefined ? { body: body.body } : {}),
+    });
+    return HttpResponse.json(post);
+  }),
+
+  http.delete("*/community/posts/:id", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const index = mockPosts.findIndex((row) => row.id === params.id);
+    if (index < 0) {
+      return bad(404, "RESOURCE_NOT_FOUND", "post not found");
+    }
+    const post = mockPosts[index];
+    if (post.author.id !== viewer.id && viewer.role !== "ADMIN") {
+      return bad(403, "FORBIDDEN", "only the author may delete this post");
+    }
+    mockPosts.splice(index, 1);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get("*/community/posts/:id/comments", ({ request, params }) => {
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    if (!mockPosts.some((row) => row.id === params.id)) {
+      return bad(404, "RESOURCE_NOT_FOUND", "post not found");
+    }
+    return HttpResponse.json(mockComments.filter((row) => row.postId === params.id));
+  }),
+
+  http.post("*/community/posts/:id/comments", async ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const post = mockPosts.find((row) => row.id === params.id);
+    if (!post) {
+      return bad(404, "RESOURCE_NOT_FOUND", "post not found");
+    }
+    const body = (await request.json()) as { body?: string };
+    if (!body.body?.trim()) {
+      return bad(400, "VALIDATION_ERROR", "one or more fields are invalid", {
+        body: "body is required",
+      });
+    }
+    commentCounter += 1;
+    const comment: PostComment = {
+      id: `comment-${commentCounter}`,
+      postId: post.id,
+      author: { id: viewer.id, fullName: viewer.fullName },
+      body: body.body.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    mockComments.push(comment);
+    post.commentCount += 1;
+    return HttpResponse.json(comment, { status: 201 });
+  }),
+];
+
+handlers.push(...communityHandlers);

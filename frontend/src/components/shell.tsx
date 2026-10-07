@@ -44,6 +44,12 @@ export function Shell() {
           >
             survival
           </Link>
+          <Link
+            to="/community"
+            className="text-sm lowercase tracking-wide text-taupe transition-colors hover:text-rosewood"
+          >
+            community
+          </Link>
           {ready && user ? (
             <>
               <Link

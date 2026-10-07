@@ -4,7 +4,10 @@ import { Shell } from "../components/shell";
 import { DashboardPage } from "../pages/DashboardPage";
 import { CartPage } from "../pages/CartPage";
 import { CheckoutPage } from "../pages/CheckoutPage";
+import { CommunityPage } from "../pages/CommunityPage";
+import { CommunityPostPage } from "../pages/CommunityPostPage";
 import { CreateListingPage } from "../pages/CreateListingPage";
+import { CreatePostPage } from "../pages/CreatePostPage";
 import { CreateReportPage } from "../pages/CreateReportPage";
 import { EditListingPage } from "../pages/EditListingPage";
 import { ListingDetailPage } from "../pages/ListingDetailPage";
@@ -174,6 +177,30 @@ export function Router() {
           element={
             <ProtectedRoute>
               <SupportRequestDetailsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="community"
+          element={
+            <ProtectedRoute>
+              <CommunityPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="community/new"
+          element={
+            <ProtectedRoute>
+              <CreatePostPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="community/:id"
+          element={
+            <ProtectedRoute>
+              <CommunityPostPage />
             </ProtectedRoute>
           }
         />
