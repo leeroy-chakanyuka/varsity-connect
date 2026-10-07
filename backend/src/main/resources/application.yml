@@ -1,0 +1,10 @@
+# default profile, points at dev unless overridden
+spring:
+  profiles:
+    active: dev
+  application:
+    name: varsity-connect
+
+---
+# shared datasource shape, real values come from env (see .env.example)
+# spring.config.activate.on-profile is set per file below

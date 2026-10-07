@@ -1,0 +1,43 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:h2:mem:varsity_test;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    open-in-view: false
+  flyway:
+    enabled: false
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  servlet:
+    multipart:
+      max-file-size: 6MB
+      max-request-size: 32MB
+
+app:
+  cors:
+    allowed-origins: http://localhost:5173
+  jwt:
+    secret: varsity-connect-test-secret-that-is-at-least-32-chars-long
+    expiry-ms: 3600000
+  media:
+    upload-dir: ./uploads-test
+  admin:
+    email:
+    password:
+  payment:
+    mock-enabled: true
+  matching:
+    threshold: 0.55
+
+logging:
+  level:
+    com.varsityconnect: WARN

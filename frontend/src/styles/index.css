@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* keep it minimal like stardust, warm neutrals, everything lowercase */
+
+@layer base {
+  body {
+    @apply bg-milk font-sans text-cocoa antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  #root {
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  ::selection {
+    background: #e8a0b4;
+    color: #fff;
+  }
+}

@@ -1,0 +1,33 @@
+# build output
+target/
+dist/
+build/
+*.class
+*.jar
+
+# deps
+node_modules/
+
+# env (never commit real secrets)
+.env
+.env.local
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# uploads stay local
+uploads/
+uploads-test/
+backend/uploads/
+backend/uploads-test/
+
+# ide + os
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+npm-debug.log*
