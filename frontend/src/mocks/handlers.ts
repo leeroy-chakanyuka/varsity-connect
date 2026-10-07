@@ -2,6 +2,7 @@ import { http, HttpResponse } from "msw";
 import type { AuthUser } from "../api/auth";
 import type { Listing } from "../api/marketplace";
 import type { Order } from "../api/orders";
+import type { PaymentResult } from "../api/payments";
 
 /* canned campus users, tokens are test-only and never leave jsdom */
 function baseUsers(): Record<string, AuthUser> {
@@ -610,3 +611,68 @@ const orderHandlers = [
 ];
 
 handlers.push(...orderHandlers);
+
+/* ---- mock till below, one row per attempt, reset between tests ---- */
+
+let paymentCounter = 0;
+let mockPayments: PaymentResult[] = [];
+
+export function resetPayments() {
+  paymentCounter = 0;
+  mockPayments = [];
+}
+
+const paymentHandlers = [
+  http.post("*/orders/:id/payments", async ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const order = mockOrders.find((row) => row.id === params.id);
+    if (!order || order.buyerId !== viewer.id) {
+      return bad(404, "RESOURCE_NOT_FOUND", "order not found");
+    }
+    if (order.status !== "PENDING_PAYMENT" && order.status !== "PAYMENT_FAILED") {
+      return bad(400, "ORDER_INVALID", "order cannot be paid in its current state");
+    }
+    const body = (await request.json()) as { simulate?: string };
+    const ok = body.simulate === "SUCCESS";
+
+    /* lock-free mock, same transitions as the backend */
+    for (const item of order.items) {
+      const listing = mockListings.find((row) => row.id === item.listingId);
+      if (!listing) continue;
+      if (ok) {
+        if (order.status === "PAYMENT_FAILED") {
+          if (listing.status !== "ACTIVE") {
+            return bad(400, "ORDER_INVALID", "listing is no longer available");
+          }
+        } else if (listing.status !== "RESERVED") {
+          return bad(400, "ORDER_INVALID", "listing is no longer reserved for this order");
+        }
+        listing.status = "SOLD";
+      } else {
+        listing.status = "ACTIVE";
+      }
+    }
+    order.status = ok ? "PAID" : "PAYMENT_FAILED";
+
+    paymentCounter += 1;
+    const token = (request.headers.get("Authorization") ?? "").replace("Bearer ", "");
+    if (ok) {
+      mockCarts[token] = [];
+    }
+    const result: PaymentResult = {
+      id: `pay-${paymentCounter}`,
+      amount: order.total,
+      status: ok ? "SUCCEEDED" : "FAILED",
+      provider: "mock",
+      createdAt: new Date().toISOString(),
+      order: { ...order, items: [...order.items] },
+    };
+    mockPayments.unshift(result);
+    return HttpResponse.json(result);
+  }),
+];
+
+handlers.push(...paymentHandlers);

@@ -11,6 +11,7 @@ import { LoginPage } from "../pages/LoginPage";
 import { MarketplacePage } from "../pages/MarketplacePage";
 import { OrderDetailPage } from "../pages/OrderDetailPage";
 import { OrdersPage } from "../pages/OrdersPage";
+import { PaymentResultPage } from "../pages/PaymentResultPage";
 import { MyProfilePage } from "../pages/MyProfilePage";
 import { PublicProfilePage } from "../pages/PublicProfilePage";
 import { RegisterPage } from "../pages/RegisterPage";
@@ -111,6 +112,14 @@ export function Router() {
           element={
             <ProtectedRoute>
               <OrderDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="orders/:id/result"
+          element={
+            <ProtectedRoute>
+              <PaymentResultPage />
             </ProtectedRoute>
           }
         />
