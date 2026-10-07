@@ -4,6 +4,7 @@ import type { Listing } from "../api/marketplace";
 import type { Order } from "../api/orders";
 import type { PaymentResult } from "../api/payments";
 import type { Report } from "../api/lostfound";
+import type { SupportOffer, SupportRequest } from "../api/support";
 
 /* canned campus users, tokens are test-only and never leave jsdom */
 function baseUsers(): Record<string, AuthUser> {
@@ -1014,3 +1015,275 @@ const matchHandlers = [
 ];
 
 handlers.push(...matchHandlers);
+
+/* ---- mock survival board below, transitions mirror the backend ---- */
+
+let supportCounter = 0;
+let offerCounter = 0;
+let mockRequests: SupportRequest[] = [];
+let mockOffers: SupportOffer[] = [];
+
+function seedSupport(): SupportRequest[] {
+  const student = usersByToken["student-token"];
+  return [
+    {
+      id: "sup-seed-1",
+      requester: { id: student.id, fullName: student.fullName },
+      type: "FOOD",
+      title: "need dinner tonight",
+      description: "stipend late, one meal please",
+      location: "res block c",
+      urgency: "HIGH",
+      status: "OPEN",
+      resolvedAt: null,
+      createdAt: "2026-10-05T12:00:00Z",
+      updatedAt: "2026-10-05T12:00:00Z",
+    },
+  ];
+}
+
+export function resetSupport() {
+  supportCounter = 0;
+  offerCounter = 0;
+  mockRequests = seedSupport();
+  mockOffers = [];
+}
+
+resetSupport();
+
+const supportHandlers = [
+  http.get("*/support/requests", ({ request }) => {
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const status = new URL(request.url).searchParams.get("status");
+    const rows = status ? mockRequests.filter((row) => row.status === status) : mockRequests;
+    const ordered = [...rows].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    return HttpResponse.json({
+      content: ordered,
+      page: 0,
+      size: 20,
+      totalElements: ordered.length,
+      totalPages: 1,
+      first: true,
+      last: true,
+    });
+  }),
+
+  http.post("*/support/requests", async ({ request }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const body = (await request.json()) as Partial<SupportRequest>;
+    const fieldErrors: Record<string, string> = {};
+    if (!body.title?.trim()) fieldErrors.title = "title is required";
+    if (!body.description?.trim()) fieldErrors.description = "description is required";
+    if (!body.location?.trim()) fieldErrors.location = "location is required";
+    if (!body.type) fieldErrors.type = "type is required";
+    if (!body.urgency) fieldErrors.urgency = "urgency is required";
+    if (Object.keys(fieldErrors).length > 0) {
+      return bad(400, "VALIDATION_ERROR", "one or more fields are invalid", fieldErrors);
+    }
+    supportCounter += 1;
+    const row: SupportRequest = {
+      id: `sup-new-${supportCounter}`,
+      requester: { id: viewer.id, fullName: viewer.fullName },
+      type: body.type!,
+      title: body.title!.trim(),
+      description: body.description!.trim(),
+      location: body.location!.trim(),
+      urgency: body.urgency!,
+      status: "OPEN",
+      resolvedAt: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockRequests.unshift(row);
+    return HttpResponse.json(row, { status: 201 });
+  }),
+
+  http.get("*/support/requests/:id", ({ request, params }) => {
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const row = mockRequests.find((entry) => entry.id === params.id);
+    if (!row) {
+      return bad(404, "RESOURCE_NOT_FOUND", "support request not found");
+    }
+    return HttpResponse.json(row);
+  }),
+
+  http.patch("*/support/requests/:id", async ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const row = mockRequests.find((entry) => entry.id === params.id);
+    if (!row) {
+      return bad(404, "RESOURCE_NOT_FOUND", "support request not found");
+    }
+    if (row.requester.id !== viewer.id) {
+      return bad(403, "FORBIDDEN", "only the requester may do this");
+    }
+    const body = (await request.json()) as Partial<SupportRequest>;
+    Object.assign(row, {
+      ...(body.title !== undefined ? { title: body.title } : {}),
+      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.location !== undefined ? { location: body.location } : {}),
+    });
+    return HttpResponse.json(row);
+  }),
+
+  http.post("*/support/requests/:id/cancel", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const row = mockRequests.find((entry) => entry.id === params.id);
+    if (!row) {
+      return bad(404, "RESOURCE_NOT_FOUND", "support request not found");
+    }
+    if (row.requester.id !== viewer.id) {
+      return bad(403, "FORBIDDEN", "only the requester may do this");
+    }
+    if (row.status !== "OPEN" && row.status !== "OFFER_RECEIVED") {
+      return bad(400, "INVALID_STATE_TRANSITION", "only open requests can be cancelled");
+    }
+    row.status = "CANCELLED";
+    return HttpResponse.json(row);
+  }),
+
+  http.post("*/support/requests/:id/resolve", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const row = mockRequests.find((entry) => entry.id === params.id);
+    if (!row) {
+      return bad(404, "RESOURCE_NOT_FOUND", "support request not found");
+    }
+    if (row.requester.id !== viewer.id) {
+      return bad(403, "FORBIDDEN", "only the requester may do this");
+    }
+    if (row.status === "RESOLVED") {
+      return bad(400, "INVALID_STATE_TRANSITION", "request is already resolved");
+    }
+    row.status = "RESOLVED";
+    for (const offer of mockOffers) {
+      if (offer.requestId === row.id && offer.status === "ACCEPTED") {
+        offer.status = "COMPLETED";
+      }
+    }
+    return HttpResponse.json(row);
+  }),
+
+  http.post("*/support/requests/:id/offers", async ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const row = mockRequests.find((entry) => entry.id === params.id);
+    if (!row) {
+      return bad(404, "RESOURCE_NOT_FOUND", "support request not found");
+    }
+    if (row.requester.id === viewer.id) {
+      return bad(403, "FORBIDDEN", "you cannot offer help on your own request");
+    }
+    if (row.status === "RESOLVED" || row.status === "CANCELLED") {
+      return bad(400, "INVALID_STATE_TRANSITION", "request is no longer open for help");
+    }
+    const body = (await request.json()) as { message?: string };
+    if (!body.message?.trim()) {
+      return bad(400, "VALIDATION_ERROR", "one or more fields are invalid", {
+        message: "message is required",
+      });
+    }
+    offerCounter += 1;
+    const offer: SupportOffer = {
+      id: `offer-${offerCounter}`,
+      requestId: row.id,
+      responder: { id: viewer.id, fullName: viewer.fullName },
+      message: body.message.trim(),
+      status: "PENDING",
+      createdAt: new Date().toISOString(),
+    };
+    mockOffers.push(offer);
+    if (row.status === "OPEN") {
+      row.status = "OFFER_RECEIVED";
+    }
+    return HttpResponse.json(offer, { status: 201 });
+  }),
+
+  http.get("*/support/requests/:id/offers", ({ request, params }) => {
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    if (!mockRequests.some((entry) => entry.id === params.id)) {
+      return bad(404, "RESOURCE_NOT_FOUND", "support request not found");
+    }
+    return HttpResponse.json(mockOffers.filter((offer) => offer.requestId === params.id));
+  }),
+
+  http.post("*/support/offers/:id/accept", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const offer = mockOffers.find((entry) => entry.id === params.id);
+    if (!offer) {
+      return bad(404, "RESOURCE_NOT_FOUND", "support offer not found");
+    }
+    const row = mockRequests.find((entry) => entry.id === offer.requestId)!;
+    if (row.requester.id !== viewer.id) {
+      return bad(403, "FORBIDDEN", "only the requester may do this");
+    }
+    if (offer.status !== "PENDING") {
+      return bad(400, "INVALID_STATE_TRANSITION", "offer is no longer pending");
+    }
+    offer.status = "ACCEPTED";
+    row.status = "IN_PROGRESS";
+    return HttpResponse.json(offer);
+  }),
+
+  http.post("*/support/offers/:id/decline", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const offer = mockOffers.find((entry) => entry.id === params.id);
+    if (!offer) {
+      return bad(404, "RESOURCE_NOT_FOUND", "support offer not found");
+    }
+    const row = mockRequests.find((entry) => entry.id === offer.requestId)!;
+    if (row.requester.id !== viewer.id) {
+      return bad(403, "FORBIDDEN", "only the requester may do this");
+    }
+    if (offer.status !== "PENDING") {
+      return bad(400, "INVALID_STATE_TRANSITION", "offer is no longer pending");
+    }
+    offer.status = "DECLINED";
+    return HttpResponse.json(offer);
+  }),
+
+  http.post("*/support/offers/:id/withdraw", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const offer = mockOffers.find((entry) => entry.id === params.id);
+    if (!offer) {
+      return bad(404, "RESOURCE_NOT_FOUND", "support offer not found");
+    }
+    if (offer.responder.id !== viewer.id) {
+      return bad(403, "FORBIDDEN", "only the responder may withdraw this offer");
+    }
+    if (offer.status !== "PENDING") {
+      return bad(400, "INVALID_STATE_TRANSITION", "offer is no longer pending");
+    }
+    offer.status = "WITHDRAWN";
+    return HttpResponse.json(offer);
+  }),
+];
+
+handlers.push(...supportHandlers);

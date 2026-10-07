@@ -11,10 +11,13 @@ import { ListingDetailPage } from "../pages/ListingDetailPage";
 import { LoginPage } from "../pages/LoginPage";
 import { MarketplacePage } from "../pages/MarketplacePage";
 import { LostFoundPage } from "../pages/LostFoundPage";
+import { CreateSupportRequestPage } from "../pages/CreateSupportRequestPage";
 import { OrderDetailPage } from "../pages/OrderDetailPage";
 import { OrdersPage } from "../pages/OrdersPage";
 import { PaymentResultPage } from "../pages/PaymentResultPage";
 import { ReportDetailPage } from "../pages/ReportDetailPage";
+import { SupportRequestDetailsPage } from "../pages/SupportRequestDetailsPage";
+import { SurvivalModePage } from "../pages/SurvivalModePage";
 import { MyProfilePage } from "../pages/MyProfilePage";
 import { PublicProfilePage } from "../pages/PublicProfilePage";
 import { RegisterPage } from "../pages/RegisterPage";
@@ -147,6 +150,30 @@ export function Router() {
           element={
             <ProtectedRoute>
               <ReportDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="survival"
+          element={
+            <ProtectedRoute>
+              <SurvivalModePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="survival/new"
+          element={
+            <ProtectedRoute>
+              <CreateSupportRequestPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="survival/:id"
+          element={
+            <ProtectedRoute>
+              <SupportRequestDetailsPage />
             </ProtectedRoute>
           }
         />

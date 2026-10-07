@@ -38,6 +38,12 @@ export function Shell() {
           >
             lost &amp; found
           </Link>
+          <Link
+            to="/survival"
+            className="text-sm lowercase tracking-wide text-taupe transition-colors hover:text-rosewood"
+          >
+            survival
+          </Link>
           {ready && user ? (
             <>
               <Link
