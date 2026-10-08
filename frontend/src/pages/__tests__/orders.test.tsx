@@ -47,6 +47,19 @@ describe("orders pages", () => {
     expect(screen.getByText(/pending payment/i)).toBeInTheDocument();
   });
 
+  it("shows the receipt to its seller", async () => {
+    await fillBasket();
+    const checkout = renderWithSession(<Router />, "/checkout", "student-token");
+    fireEvent.click(await screen.findByRole("button", { name: /place order/i }));
+    await screen.findByText("pending payment");
+    checkout.unmount();
+
+    /* vendor sold this laptop, so the receipt opens for them too */
+    renderWithSession(<Router />, "/orders/order-1", "vendor-token");
+    expect(await screen.findByText("pending payment")).toBeInTheDocument();
+    expect(screen.getByText("dell laptop")).toBeInTheDocument();
+  });
+
   it("hides strangers receipts", async () => {
     await fillBasket();
     const checkout = renderWithSession(<Router />, "/checkout", "student-token");
@@ -54,8 +67,8 @@ describe("orders pages", () => {
     await screen.findByText("pending payment");
     checkout.unmount();
 
-    /* vendor did not buy this */
-    renderWithSession(<Router />, "/orders/order-1", "vendor-token");
+    /* admin neither bought nor sold this */
+    renderWithSession(<Router />, "/orders/order-1", "admin-token");
     expect(await screen.findByText("order not found")).toBeInTheDocument();
   });
 });

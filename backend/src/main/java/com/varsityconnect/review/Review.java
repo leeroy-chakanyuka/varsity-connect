@@ -9,10 +9,16 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 /* one buyer voice per order per seller, trust you can trace */
 @Entity
-@Table(name = "reviews")
+@Table(
+    name = "reviews",
+    uniqueConstraints =
+        @UniqueConstraint(
+            name = "uq_review_order_reviewer_reviewee",
+            columnNames = {"order_id", "reviewer_id", "reviewee_id"}))
 public class Review extends AuditableEntity {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)

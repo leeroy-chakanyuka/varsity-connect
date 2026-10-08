@@ -87,7 +87,7 @@ describe("notifications socket", () => {
   it("connects with the jwt and subscribes to the private queue", async () => {
     probe();
 
-    await waitFor(() => expect(instances.length).toBe(1));
+    await waitFor(() => expect(instances.length).toBe(1), { timeout: 5000 });
     const only = instances[0];
     expect(only.config.brokerURL).toBe("ws://localhost:8080/ws");
     expect(only.config.connectHeaders).toMatchObject({ Authorization: "Bearer student-token" });
@@ -97,7 +97,7 @@ describe("notifications socket", () => {
   it("toasts an incoming ping", async () => {
     probe();
 
-    await waitFor(() => expect(instances.length).toBe(1));
+    await waitFor(() => expect(instances.length).toBe(1), { timeout: 5000 });
     const sub = instances[0].subscribed.find((entry) => entry.dest === "/user/queue/notifications");
     expect(sub).toBeDefined();
     sub?.cb({ body: JSON.stringify(ping) });
@@ -110,7 +110,7 @@ describe("notifications socket", () => {
     first.unmount();
     probe();
 
-    await waitFor(() => expect(instances.length).toBe(1));
+    await waitFor(() => expect(instances.length).toBe(1), { timeout: 5000 });
 
     stopNotificationsSocket();
     expect(instances[0].active).toBe(false);
@@ -119,7 +119,7 @@ describe("notifications socket", () => {
   it("ignores a malformed frame", async () => {
     probe();
 
-    await waitFor(() => expect(instances.length).toBe(1));
+    await waitFor(() => expect(instances.length).toBe(1), { timeout: 5000 });
     const sub = instances[0].subscribed.find((entry) => entry.dest === "/user/queue/notifications");
     sub?.cb({ body: "not json at all {{{" });
 

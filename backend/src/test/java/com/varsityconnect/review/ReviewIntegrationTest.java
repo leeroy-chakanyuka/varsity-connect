@@ -283,4 +283,23 @@ class ReviewIntegrationTest {
     MvcResult result = review(buyerToken, java.util.UUID.randomUUID().toString(), orderId, 5, "ghost");
     assertThat(result.getResponse().getStatus()).isEqualTo(404);
   }
+
+  @Test
+  void duplicateVoiceViolatesDatabaseConstraint() throws Exception {
+    String orderId = completedOrder();
+    assertThat(review(buyerToken, sellerId, orderId, 5, "first").getResponse().getStatus()).isEqualTo(201);
+
+    /* past the service guard straight at the table — the unique trio holds */
+    com.varsityconnect.user.User reviewer = users.findByEmail("reviewbuyer@cput.ac.za").orElseThrow();
+    com.varsityconnect.user.User reviewee = users.findByEmail("reviewseller@cput.ac.za").orElseThrow();
+    com.varsityconnect.order.Order order =
+        orders.findById(java.util.UUID.fromString(orderId)).orElseThrow();
+    try {
+      reviews.saveAndFlush(new Review(reviewer, reviewee, order, 4, "sneaky second"));
+      org.junit.jupiter.api.Assertions.fail("duplicate review should violate the constraint");
+    } catch (Exception e) {
+      String text = ("" + e.getMessage() + java.util.Arrays.toString(e.getStackTrace())).toLowerCase();
+      assertThat(text).contains("uq_review_order_reviewer_reviewee");
+    }
+  }
 }
