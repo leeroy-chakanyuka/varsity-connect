@@ -10,6 +10,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test-setup.ts"],
+    /* playwright lives in e2e/, vitest never touches it */
+    exclude: ["e2e/**", "node_modules/**"],
     /* two-core dev machine, don't thrash it with a worker per file */
     pool: "forks",
     poolOptions: {
