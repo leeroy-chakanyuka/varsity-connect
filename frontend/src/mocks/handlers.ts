@@ -1786,3 +1786,109 @@ const dashboardHandlers = [
 ];
 
 handlers.push(...dashboardHandlers);
+
+/* ---- mock desk below, admins only, reset between tests ---- */
+
+function pageOf<T>(rows: T[]) {
+  return {
+    content: rows,
+    page: 0,
+    size: 50,
+    totalElements: rows.length,
+    totalPages: 1,
+    first: true,
+    last: true,
+  };
+}
+
+function requireAdmin(request: Request) {
+  const viewer = userFor(request);
+  if (!viewer) {
+    return { error: bad(401, "UNAUTHORIZED", "authentication required") as Response };
+  }
+  if (viewer.role !== "ADMIN") {
+    return { error: bad(403, "FORBIDDEN", "you may not perform this action") as Response };
+  }
+  return { viewer };
+}
+
+const adminHandlers = [
+  http.get("*/admin/users", ({ request }) => {
+    const gate = requireAdmin(request);
+    if (gate.error) return gate.error;
+    /* registered-token aliases the student, the desk lists people once */
+    const seen = new Set<string>();
+    const people = Object.values(usersByToken).filter((user) => {
+      if (seen.has(user.id)) {
+        return false;
+      }
+      seen.add(user.id);
+      return true;
+    });
+    return HttpResponse.json(pageOf(people));
+  }),
+
+  http.post("*/admin/users/:id/enable", ({ request, params }) => {
+    const gate = requireAdmin(request);
+    if (gate.error) return gate.error;
+    const found = Object.values(usersByToken).find((u) => u.id === params.id);
+    if (!found) {
+      return bad(404, "RESOURCE_NOT_FOUND", "user not found");
+    }
+    found.enabled = true;
+    return HttpResponse.json(found);
+  }),
+
+  http.post("*/admin/users/:id/disable", ({ request, params }) => {
+    const gate = requireAdmin(request);
+    if (gate.error) return gate.error;
+    const found = Object.values(usersByToken).find((u) => u.id === params.id);
+    if (!found) {
+      return bad(404, "RESOURCE_NOT_FOUND", "user not found");
+    }
+    found.enabled = false;
+    return HttpResponse.json(found);
+  }),
+
+  http.get("*/admin/listings", ({ request }) => {
+    const gate = requireAdmin(request);
+    if (gate.error) return gate.error;
+    return HttpResponse.json(pageOf(mockListings));
+  }),
+
+  http.delete("*/admin/listings/:id", ({ request, params }) => {
+    const gate = requireAdmin(request);
+    if (gate.error) return gate.error;
+    const listing = mockListings.find((row) => row.id === params.id);
+    if (!listing) {
+      return bad(404, "RESOURCE_NOT_FOUND", "listing not found");
+    }
+    listing.status = "ARCHIVED";
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get("*/admin/community/posts", ({ request }) => {
+    const gate = requireAdmin(request);
+    if (gate.error) return gate.error;
+    return HttpResponse.json(pageOf(mockPosts));
+  }),
+
+  http.delete("*/admin/community/posts/:id", ({ request, params }) => {
+    const gate = requireAdmin(request);
+    if (gate.error) return gate.error;
+    const index = mockPosts.findIndex((row) => row.id === params.id);
+    if (index < 0) {
+      return bad(404, "RESOURCE_NOT_FOUND", "post not found");
+    }
+    mockPosts.splice(index, 1);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get("*/admin/support/requests", ({ request }) => {
+    const gate = requireAdmin(request);
+    if (gate.error) return gate.error;
+    return HttpResponse.json(pageOf(mockRequests));
+  }),
+];
+
+handlers.push(...adminHandlers);

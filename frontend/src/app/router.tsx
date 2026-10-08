@@ -1,6 +1,8 @@
 import { Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "../components/ProtectedRoute";
+import { RoleRoute } from "../components/RoleRoute";
 import { Shell } from "../components/shell";
+import { AdminDashboardPage } from "../pages/AdminDashboardPage";
 import { CartPage } from "../pages/CartPage";
 import { CheckoutPage } from "../pages/CheckoutPage";
 import { CommunityPage } from "../pages/CommunityPage";
@@ -211,6 +213,14 @@ export function Router() {
             <ProtectedRoute>
               <NotificationsPage />
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin"
+          element={
+            <RoleRoute allow={["ADMIN"]}>
+              <AdminDashboardPage />
+            </RoleRoute>
           }
         />
         <Route path="*" element={<NotFound />} />

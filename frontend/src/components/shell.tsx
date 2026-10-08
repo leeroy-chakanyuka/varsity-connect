@@ -77,6 +77,14 @@ export function Shell() {
               >
                 orders
               </Link>
+              {user.role === "ADMIN" && (
+                <Link
+                  to="/admin"
+                  className="text-sm lowercase tracking-wide text-taupe transition-colors hover:text-rosewood"
+                >
+                  desk
+                </Link>
+              )}
               <Link
                 to="/cart"
                 aria-label={`cart, ${cart?.itemCount ?? 0} items`}
