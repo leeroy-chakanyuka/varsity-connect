@@ -82,6 +82,8 @@ describe("notifications socket", () => {
     stopNotificationsSocket();
     resetToasts();
     instances.length = 0;
+    /* local .env files stay out of assertions */
+    vi.stubEnv("VITE_WS_URL", "http://localhost:8080/ws");
   });
 
   it("connects with the jwt and subscribes to the private queue", async () => {
@@ -130,6 +132,19 @@ describe("notifications socket", () => {
 });
 
 describe("startNotificationsSocket", () => {
+  it("derives the socket url from the api url without an explicit one", () => {
+    instances.length = 0;
+    stopNotificationsSocket();
+    vi.stubEnv("VITE_WS_URL", "");
+    vi.stubEnv("VITE_API_URL", "http://example.com:9000/api/v1");
+    const queryClient = new QueryClient();
+    startNotificationsSocket("token-derive", queryClient);
+
+    expect(instances.length).toBe(1);
+    expect(instances[0].config.brokerURL).toBe("ws://example.com:9000/ws");
+    vi.unstubAllEnvs();
+  });
+
   it("restarts when the token changes", () => {
     instances.length = 0;
     stopNotificationsSocket();

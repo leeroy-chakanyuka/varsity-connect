@@ -2,6 +2,7 @@ import { Client, type IMessage } from "@stomp/stompjs";
 import { useEffect } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
+import { apiBaseUrl } from "../api/client";
 import { notificationKeys, type AppNotification } from "../api/notifications";
 import { supportKeys } from "../api/support";
 import { communityKeys } from "../api/community";
@@ -15,8 +16,12 @@ let activeToken: string | null = null;
 let starts = 0;
 
 function wsUrl(): string {
-  const http = import.meta.env.VITE_WS_URL ?? "http://localhost:8080/ws";
-  return http.replace(/^http/, "ws");
+  const explicit = import.meta.env.VITE_WS_URL as string | undefined;
+  if (explicit) {
+    return explicit.replace(/^http/, "ws");
+  }
+  /* same host as the api, /ws at the root */
+  return apiBaseUrl().replace(/\/api\/v1\/?$/, "").replace(/^http/, "ws") + "/ws";
 }
 
 function invalidateFor(queryClient: QueryClient, notification: AppNotification) {

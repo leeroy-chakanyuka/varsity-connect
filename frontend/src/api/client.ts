@@ -10,6 +10,11 @@ function baseUrl(): string {
   return import.meta.env.VITE_API_URL ?? "http://localhost:8080/api/v1";
 }
 
+/* single place everything derives server addresses from, env first */
+export function apiBaseUrl(): string {
+  return baseUrl();
+}
+
 export const api = axios.create({
   baseURL: baseUrl(),
   headers: { "Content-Type": "application/json" },
