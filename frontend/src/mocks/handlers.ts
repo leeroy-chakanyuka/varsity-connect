@@ -8,6 +8,7 @@ import type { SupportOffer, SupportRequest } from "../api/support";
 import type { Post, PostComment } from "../api/community";
 import type { AppNotification } from "../api/notifications";
 import type { Review } from "../api/reviews";
+import type { DashboardData } from "../api/dashboard";
 
 /* canned campus users, tokens are test-only and never leave jsdom */
 function baseUsers(): Record<string, AuthUser> {
@@ -1741,3 +1742,47 @@ const reviewHandlers = [
 ];
 
 handlers.push(...reviewHandlers);
+
+/* ---- mock home below, capped slices of the same shelves above ---- */
+
+const dashboardHandlers = [
+  http.get("*/dashboard", ({ request }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const token = (request.headers.get("Authorization") ?? "").replace("Bearer ", "");
+    const activeListings = mockListings
+      .filter((row) => row.status === "ACTIVE")
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    const openReports = mockReports.filter((row) => row.status === "OPEN");
+    const openSupport = mockRequests
+      .filter((row) => row.status === "OPEN")
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    const myReportIds = mockReports.filter((row) => row.owner.id === viewer.id).map((row) => row.id);
+    const myMatches = mockMatches
+      .filter((row) => myReportIds.includes(row.lostId) || myReportIds.includes(row.foundId))
+      .slice(0, 5)
+      .map((row) => {
+        const viewingId = myReportIds.includes(row.lostId) ? row.lostId : row.foundId;
+        return matchView(row, viewingId);
+      });
+    const unread = (mockNotifications[token] ?? []).filter((row) => !row.readAt).length;
+    const body: DashboardData = {
+      user: viewer,
+      unreadNotifications: unread,
+      latestListings: activeListings.slice(0, 4),
+      latestPosts: [...mockPosts]
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+        .slice(0, 4),
+      openSupportRequests: openSupport.slice(0, 4),
+      myMatches,
+      activeListingCount: activeListings.length,
+      openLostReportCount: openReports.length,
+      openSupportRequestCount: mockRequests.filter((row) => row.status === "OPEN").length,
+    };
+    return HttpResponse.json(body);
+  }),
+];
+
+handlers.push(...dashboardHandlers);

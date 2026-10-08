@@ -9,4 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface SupportRequestRepository extends JpaRepository<SupportRequest, UUID> {
 
   Page<SupportRequest> findByStatusOrderByCreatedAtDesc(SupportStatus status, Pageable pageable);
+
+  long countByStatus(SupportStatus status);
 }

@@ -1,5 +1,6 @@
 package com.varsityconnect.community;
 
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,6 +12,8 @@ import org.springframework.data.repository.query.Param;
 public interface CommunityPostRepository extends JpaRepository<CommunityPost, UUID> {
 
   Page<CommunityPost> findByDeletedFalse(Pageable pageable);
+
+  List<CommunityPost> findTop4ByDeletedFalseOrderByCreatedAtDesc();
 
   @Query(
       "select p from CommunityPost p where p.deleted = false"
