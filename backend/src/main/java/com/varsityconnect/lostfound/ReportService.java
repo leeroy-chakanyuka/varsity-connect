@@ -107,6 +107,18 @@ public class ReportService {
     return ReportResponse.from(reports.save(report));
   }
 
+  /* matched pairs leave the board together, only from a confirmed match */
+  @Transactional
+  public ReportResponse resolve(UUID id, UserPrincipal principal) {
+    LostFoundReport report = byId(id);
+    requireOwnerOrAdmin(report, principal, "only the reporter may resolve this report");
+    if (report.getStatus() != ReportStatus.MATCHED) {
+      throw new BadRequestException("INVALID_STATE_TRANSITION", "only matched reports can resolve");
+    }
+    report.setStatus(ReportStatus.RESOLVED);
+    return ReportResponse.from(reports.save(report));
+  }
+
   private LostFoundReport byId(UUID id) {
     return reports.findById(id).orElseThrow(() -> new NotFoundException("report not found"));
   }

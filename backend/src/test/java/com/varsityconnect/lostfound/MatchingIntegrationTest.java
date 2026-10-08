@@ -216,6 +216,42 @@ class MatchingIntegrationTest {
   }
 
   @Test
+  void matchedPairResolves() throws Exception {
+    JsonNode lost =
+        create(lostOwnerToken, "LOST", "black wallet", "OTHER", "leather wallet with student card", "library steps", "2026-10-01");
+    JsonNode found =
+        create(foundOwnerToken, "FOUND", "black wallet", "OTHER", "leather wallet holding a student card", "library steps", "2026-10-01");
+    String matchId = matchesOf(lostOwnerToken, lost.get("id").asText()).get(0).get("id").asText();
+    decide(lostOwnerToken, matchId, "ACCEPT");
+    decide(foundOwnerToken, matchId, "ACCEPT");
+    assertThat(statusOf(lost.get("id").asText())).isEqualTo("MATCHED");
+
+    /* owner resolves, stranger may not */
+    mvc.perform(
+            post("/api/v1/lost-found/reports/" + found.get("id").asText() + "/resolve")
+                .header("Authorization", "Bearer " + strangerToken))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            post("/api/v1/lost-found/reports/" + lost.get("id").asText() + "/resolve")
+                .header("Authorization", "Bearer " + lostOwnerToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("RESOLVED"));
+    assertThat(statusOf(lost.get("id").asText())).isEqualTo("RESOLVED");
+  }
+
+  @Test
+  void openReportCannotResolve() throws Exception {
+    JsonNode lost =
+        create(lostOwnerToken, "LOST", "lonely keys", "OTHER", "a single brass key", "bus stop", "2026-09-01");
+
+    mvc.perform(
+            post("/api/v1/lost-found/reports/" + lost.get("id").asText() + "/resolve")
+                .header("Authorization", "Bearer " + lostOwnerToken))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_STATE_TRANSITION"));
+  }
+
+  @Test
   void unrelatedUserCannotDecide() throws Exception {
     JsonNode lost =
         create(lostOwnerToken, "LOST", "black wallet", "OTHER", "leather wallet with student card", "library steps", "2026-10-01");

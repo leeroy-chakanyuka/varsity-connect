@@ -89,6 +89,11 @@ export async function closeReport(id: string): Promise<Report> {
   return data;
 }
 
+export async function resolveReport(id: string): Promise<Report> {
+  const { data } = await api.post<Report>(`/lost-found/reports/${id}/resolve`);
+  return data;
+}
+
 export function useReports(filters: ReportFilters) {
   return useQuery({
     queryKey: reportKeys.list(filters),
@@ -131,6 +136,17 @@ export function useCloseReport() {
   return useMutation({
     mutationFn: closeReport,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reportKeys.all });
+    },
+  });
+}
+
+export function useResolveReport() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: resolveReport,
+    onSuccess: (report) => {
+      queryClient.setQueryData(reportKeys.detail(report.id), report);
       queryClient.invalidateQueries({ queryKey: reportKeys.all });
     },
   });

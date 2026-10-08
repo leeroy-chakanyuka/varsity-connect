@@ -914,6 +914,25 @@ const reportHandlers = [
     report.status = "CLOSED";
     return HttpResponse.json(report);
   }),
+
+  http.post("*/lost-found/reports/:id/resolve", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const report = mockReports.find((row) => row.id === params.id);
+    if (!report) {
+      return bad(404, "RESOURCE_NOT_FOUND", "report not found");
+    }
+    if (report.owner.id !== viewer.id && viewer.role !== "ADMIN") {
+      return bad(403, "FORBIDDEN", "only the reporter may resolve this report");
+    }
+    if (report.status !== "MATCHED") {
+      return bad(400, "INVALID_STATE_TRANSITION", "only matched reports can resolve");
+    }
+    report.status = "RESOLVED";
+    return HttpResponse.json(report);
+  }),
 ];
 
 handlers.push(...reportHandlers);

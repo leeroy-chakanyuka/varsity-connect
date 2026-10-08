@@ -75,4 +75,11 @@ public class ReportController {
       @PathVariable UUID id, @AuthenticationPrincipal UserPrincipal principal) {
     return service.close(id, principal);
   }
+
+  /* confirmed pairs leave the board, only from a matched report */
+  @PostMapping("/{id}/resolve")
+  public ReportResponse resolve(
+      @PathVariable UUID id, @AuthenticationPrincipal UserPrincipal principal) {
+    return service.resolve(id, principal);
+  }
 }

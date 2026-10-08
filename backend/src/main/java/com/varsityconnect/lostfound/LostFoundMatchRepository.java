@@ -3,6 +3,7 @@ package com.varsityconnect.lostfound;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +14,7 @@ public interface LostFoundMatchRepository extends JpaRepository<LostFoundMatch, 
   Optional<LostFoundMatch> findByLostReportIdAndFoundReportId(UUID lostId, UUID foundId);
 
   /* every pair a report belongs to, for availability bookkeeping */
+  @EntityGraph(attributePaths = {"lostReport", "foundReport"})
   @Query(
       "select m from LostFoundMatch m where m.lostReport.id = :id or m.foundReport.id = :id")
   List<LostFoundMatch> findByReportId(@Param("id") UUID id);

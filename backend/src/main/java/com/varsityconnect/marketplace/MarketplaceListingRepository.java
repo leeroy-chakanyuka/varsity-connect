@@ -4,6 +4,7 @@ import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
@@ -19,6 +20,8 @@ public interface MarketplaceListingRepository
   @Query("select l from MarketplaceListing l where l.id = :id")
   Optional<MarketplaceListing> findByIdForUpdate(@Param("id") UUID id);
 
+  /* shelf cards walk sellers and photos — one round trip */
+  @EntityGraph(attributePaths = {"seller", "images"})
   List<MarketplaceListing> findTop4ByStatusOrderByCreatedAtDesc(ListingStatus status);
 
   long countByStatus(ListingStatus status);

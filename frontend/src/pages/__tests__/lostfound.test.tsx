@@ -134,6 +134,28 @@ describe("potential matches", () => {
     fireEvent.click(secondAccepts[0]);
     expect(await screen.findByText(/both accepted/i)).toBeInTheDocument();
   }, 20000);
+
+  it("resolves a confirmed pair off the board", async () => {
+    const lostId = await reportAs("student-token", "LOST", "black wallet");
+    const foundId = await reportAs("vendor-token", "FOUND", "black wallet");
+
+    const lost = renderLostFound(`/lost-found/${lostId}`, "student-token");
+    const firstAccepts = await screen.findAllByRole("button", { name: /^accept$/i });
+    fireEvent.click(firstAccepts[0]);
+    await screen.findByText(/you accepted this one/i);
+    lost.unmount();
+
+    const found = renderLostFound(`/lost-found/${foundId}`, "vendor-token");
+    const secondAccepts = await screen.findAllByRole("button", { name: /^accept$/i });
+    fireEvent.click(secondAccepts[0]);
+    await screen.findByText(/both accepted/i);
+    found.unmount();
+
+    /* matched card offers the way out now */
+    renderLostFound(`/lost-found/${lostId}`, "student-token");
+    fireEvent.click(await screen.findByRole("button", { name: /mark resolved/i }));
+    expect(await screen.findByText("resolved")).toBeInTheDocument();
+  }, 25000);
 });
 
 describe("report detail", () => {

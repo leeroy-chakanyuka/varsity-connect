@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import {
   useCloseReport,
   useReport,
+  useResolveReport,
   useUpdateReport,
   type ReportPayload,
 } from "../api/lostfound";
@@ -23,6 +24,7 @@ export function ReportDetailPage() {
   const { data, isLoading, isError, refetch } = useReport(id);
   const update = useUpdateReport(id ?? "");
   const close = useCloseReport();
+  const resolve = useResolveReport();
 
   const mine = !!user && !!data && (data.owner.id === user.id || user.role === "ADMIN");
 
@@ -44,6 +46,16 @@ export function ReportDetailPage() {
     } catch (error) {
       setConfirming(false);
       setFailed(apiMessage(error, "could not close report, try again"));
+    }
+  };
+
+  const onResolve = async () => {
+    if (!id) return;
+    try {
+      setFailed(null);
+      await resolve.mutateAsync(id);
+    } catch (error) {
+      setFailed(apiMessage(error, "could not resolve report, try again"));
     }
   };
 
@@ -136,6 +148,16 @@ export function ReportDetailPage() {
           >
             edit report
           </button>
+          {data.status === "MATCHED" && (
+            <button
+              type="button"
+              onClick={onResolve}
+              disabled={resolve.isPending}
+              className="rounded-xl bg-cocoa px-4 py-2 text-sm lowercase text-white transition hover:opacity-90 disabled:opacity-60"
+            >
+              {resolve.isPending ? "resolving…" : "mark resolved"}
+            </button>
+          )}
           {confirming ? (
             <>
               <button
