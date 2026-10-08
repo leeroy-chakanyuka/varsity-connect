@@ -38,6 +38,9 @@ function invalidateFor(queryClient: QueryClient, notification: AppNotification) 
     case "order":
       queryClient.invalidateQueries({ queryKey: orderKeys.all });
       break;
+    case "profile":
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      break;
     case "listing":
       /* shelf refreshes on next visit, nothing cached by id */
       break;

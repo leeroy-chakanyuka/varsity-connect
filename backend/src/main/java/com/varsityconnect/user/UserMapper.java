@@ -1,14 +1,15 @@
 package com.varsityconnect.user;
 
 import com.varsityconnect.auth.MeResponse;
+import com.varsityconnect.review.RatingSummary;
 
 /* entity -> dto, keeps password hash inside the server */
 public final class UserMapper {
 
   private UserMapper() {}
 
-  /* ratings stay zero until the reviews stage fills them in for real */
-  public static MeResponse me(User user) {
+  /* ratings ride along now that the reviews stage fills them in for real */
+  public static MeResponse me(User user, RatingSummary ratings) {
     return new MeResponse(
         user.getId(),
         user.getFullName(),
@@ -20,12 +21,12 @@ public final class UserMapper {
         user.getProfileImageUrl(),
         user.getRole(),
         user.isEnabled(),
-        0.0,
-        0L,
+        ratings.average(),
+        ratings.count(),
         user.getCreatedAt());
   }
 
-  public static UserProfileResponse profile(User user) {
+  public static UserProfileResponse profile(User user, RatingSummary ratings) {
     return new UserProfileResponse(
         user.getId(),
         user.getFullName(),
@@ -37,8 +38,8 @@ public final class UserMapper {
         user.getProfileImageUrl(),
         user.getRole(),
         user.isEnabled(),
-        0.0,
-        0L,
+        ratings.average(),
+        ratings.count(),
         user.getCreatedAt());
   }
 }

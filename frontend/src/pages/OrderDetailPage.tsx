@@ -1,14 +1,26 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useState } from "react";
 import { formatPrice } from "../api/marketplace";
-import { useOrder } from "../api/orders";
+import {
+  useCancelOrder,
+  useCompleteOrder,
+  useMarkOrderReady,
+  useOrder,
+} from "../api/orders";
 import { apiMessage } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import { usePayOrder } from "../api/payments";
+import { ReviewForm } from "../components/reviews/ReviewForm";
 
 /* one receipt, frozen rows plus what happens next */
 export function OrderDetailPage() {
   const { id } = useParams();
+  const { user } = useAuth();
   const { data, isLoading, isError, refetch } = useOrder(id);
+  const ready = useMarkOrderReady(id ?? "");
+  const complete = useCompleteOrder(id ?? "");
+  const cancel = useCancelOrder(id ?? "");
+  const [lifecycleFailed, setLifecycleFailed] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -37,6 +49,21 @@ export function OrderDetailPage() {
       </section>
     );
   }
+
+  const isBuyer = !!user && data.buyerId === user.id;
+  const isSeller = !!user && data.items.some((item) => item.sellerId === user.id);
+  const sellers = data.items.filter(
+    (item, index, rows) => rows.findIndex((other) => other.sellerId === item.sellerId) === index,
+  );
+
+  const move = async (action: () => Promise<unknown>) => {
+    try {
+      setLifecycleFailed(null);
+      await action();
+    } catch (error) {
+      setLifecycleFailed(apiMessage(error, "that move is not allowed right now"));
+    }
+  };
 
   return (
     <section className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-6 py-8">
@@ -79,7 +106,7 @@ export function OrderDetailPage() {
         <p className="mt-1 lowercase text-taupe">
           paying: <span className="text-cocoa">{data.paymentMethod.toLowerCase().replace(/_/g, " ")}</span>
         </p>
-        {(data.status === "PENDING_PAYMENT" || data.status === "PAYMENT_FAILED") && (
+        {isBuyer && (data.status === "PENDING_PAYMENT" || data.status === "PAYMENT_FAILED") && (
           <DemoPaymentForm orderId={data.id} failedBefore={data.status === "PAYMENT_FAILED"} />
         )}
         {data.status === "PAID" && (
@@ -87,7 +114,77 @@ export function OrderDetailPage() {
             paid — arrange collection with the seller
           </p>
         )}
+        {data.status === "READY_FOR_COLLECTION" && (
+          <p className="mt-3 rounded-xl bg-milk px-3 py-2 text-xs lowercase text-taupe">
+            the seller has your items ready for collection
+          </p>
+        )}
+        {data.status === "COMPLETED" && (
+          <p className="mt-3 rounded-xl bg-milk px-3 py-2 text-xs lowercase text-taupe">
+            completed — thank you for trading on campus
+          </p>
+        )}
+        {data.status === "CANCELLED" && (
+          <p className="mt-3 rounded-xl bg-milk px-3 py-2 text-xs lowercase text-taupe">
+            cancelled — reserved items went back on the shelf
+          </p>
+        )}
       </article>
+
+      {lifecycleFailed && (
+        <p role="alert" className="rounded-xl border border-blush bg-blush/30 px-4 py-2.5 text-sm lowercase text-cocoa">
+          {lifecycleFailed}
+        </p>
+      )}
+
+      {isSeller && data.status === "PAID" && (
+        <button
+          type="button"
+          disabled={ready.isPending}
+          onClick={() => move(() => ready.mutateAsync())}
+          className="rounded-xl bg-cocoa px-4 py-3 text-sm lowercase text-white transition hover:opacity-90 disabled:opacity-60"
+        >
+          {ready.isPending ? "marking…" : "mark ready for collection"}
+        </button>
+      )}
+
+      {isBuyer && (data.status === "PAID" || data.status === "READY_FOR_COLLECTION") && (
+        <button
+          type="button"
+          disabled={complete.isPending}
+          onClick={() => move(() => complete.mutateAsync())}
+          className="rounded-xl bg-cocoa px-4 py-3 text-sm lowercase text-white transition hover:opacity-90 disabled:opacity-60"
+        >
+          {complete.isPending ? "completing…" : "mark as completed"}
+        </button>
+      )}
+
+      {isBuyer && (data.status === "PENDING_PAYMENT" || data.status === "PAYMENT_FAILED") && (
+        <button
+          type="button"
+          disabled={cancel.isPending}
+          onClick={() => move(() => cancel.mutateAsync())}
+          className="rounded-xl border border-sage bg-white px-4 py-3 text-sm lowercase text-cocoa transition hover:border-red-400 hover:text-red-500 disabled:opacity-60"
+        >
+          {cancel.isPending ? "cancelling…" : "cancel order"}
+        </button>
+      )}
+
+      {isBuyer && data.status === "COMPLETED" && (
+        <div className="flex flex-col gap-3">
+          <h2 className="font-display text-xl font-semibold lowercase text-cocoa">
+            rate your sellers<span className="text-rosewood">.</span>
+          </h2>
+          {sellers.map((seller) => (
+            <ReviewForm
+              key={seller.sellerId}
+              orderId={data.id}
+              revieweeId={seller.sellerId}
+              revieweeName={seller.sellerName}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }

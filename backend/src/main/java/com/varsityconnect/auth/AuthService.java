@@ -4,7 +4,10 @@ import com.varsityconnect.common.BadRequestException;
 import com.varsityconnect.common.ConflictException;
 import com.varsityconnect.common.ForbiddenException;
 import com.varsityconnect.common.UnauthorizedException;
+import com.varsityconnect.review.RatingSummary;
+import com.varsityconnect.review.ReviewRepository;
 import com.varsityconnect.security.JwtService;
+import com.varsityconnect.security.UserPrincipal;
 import com.varsityconnect.user.User;
 import com.varsityconnect.user.UserMapper;
 import com.varsityconnect.user.UserRepository;
@@ -21,12 +24,15 @@ public class AuthService {
   private final UserRepository users;
   private final PasswordEncoder passwords;
   private final JwtService jwt;
+  private final ReviewRepository reviews;
 
   /* constructor injection so tests can wire this by hand if needed */
-  public AuthService(UserRepository users, PasswordEncoder passwords, JwtService jwt) {
+  public AuthService(
+      UserRepository users, PasswordEncoder passwords, JwtService jwt, ReviewRepository reviews) {
     this.users = users;
     this.passwords = passwords;
     this.jwt = jwt;
+    this.reviews = reviews;
   }
 
   @Transactional
@@ -70,7 +76,7 @@ public class AuthService {
             request.faculty(),
             role);
     User saved = users.save(user);
-    return new AuthResponse(jwt.generate(saved), UserMapper.me(saved));
+    return new AuthResponse(jwt.generate(saved), UserMapper.me(saved, ratings(saved.getId())));
   }
 
   @Transactional(readOnly = true)
@@ -99,6 +105,19 @@ public class AuthService {
     if (!passwords.matches(request.password(), user.getPasswordHash())) {
       throw new UnauthorizedException("INVALID_CREDENTIALS", "invalid credentials");
     }
-    return new AuthResponse(jwt.generate(user), UserMapper.me(user));
+    return new AuthResponse(jwt.generate(user), UserMapper.me(user, ratings(user.getId())));
+  }
+
+  @Transactional(readOnly = true)
+  public MeResponse me(UserPrincipal principal) {
+    User user =
+        users.findById(principal.id()).orElseThrow(() -> new UnauthorizedException("UNAUTHORIZED", "authentication required"));
+    return UserMapper.me(user, ratings(user.getId()));
+  }
+
+  /* zeros until the first review, one indexed aggregate per read */
+  private RatingSummary ratings(java.util.UUID id) {
+    Double average = reviews.averageFor(id);
+    return new RatingSummary(average == null ? 0.0 : average, reviews.countFor(id));
   }
 }

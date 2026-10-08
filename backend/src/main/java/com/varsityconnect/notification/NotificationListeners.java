@@ -6,6 +6,8 @@ import com.varsityconnect.lostfound.LostFoundMatch;
 import com.varsityconnect.lostfound.LostFoundMatchRepository;
 import com.varsityconnect.order.Order;
 import com.varsityconnect.order.OrderRepository;
+import com.varsityconnect.review.Review;
+import com.varsityconnect.review.ReviewRepository;
 import com.varsityconnect.support.SupportOffer;
 import com.varsityconnect.support.SupportOfferRepository;
 import org.slf4j.Logger;
@@ -28,18 +30,21 @@ public class NotificationListeners {
   private final LostFoundMatchRepository matches;
   private final SupportOfferRepository offers;
   private final CommunityCommentRepository comments;
+  private final ReviewRepository reviews;
 
   public NotificationListeners(
       NotificationService notifications,
       OrderRepository orders,
       LostFoundMatchRepository matches,
       SupportOfferRepository offers,
-      CommunityCommentRepository comments) {
+      CommunityCommentRepository comments,
+      ReviewRepository reviews) {
     this.notifications = notifications;
     this.orders = orders;
     this.matches = matches;
     this.offers = offers;
     this.comments = comments;
+    this.reviews = reviews;
   }
 
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -48,7 +53,27 @@ public class NotificationListeners {
     orders.findById(event.orderId()).ifPresent(order -> notifyBuyer(order));
   }
 
-  private void notifyBuyer(Order order) {
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public void onOrderCreated(OrderCreatedEvent event) {
+    orders.findById(event.orderId()).ifPresent(this::notifySellers);
+  }
+
+  /* every seller on the receipt hears it, the buyer already knows */
+  private void notifySellers(Order order) {
+    order.getItems().stream()
+        .map(item -> item.getSeller().getId())
+        .distinct()
+        .forEach(
+            sellerId ->
+                notifications.notify(
+                    sellerId,
+                    NotificationType.ORDER_CREATED,
+                    "new order for your listing",
+                    order.getBuyer().getFullName() + " checked out, get it ready",
+                    "order",
+                    order.getId()));
+  }  private void notifyBuyer(Order order) {
     notifications.notify(
         order.getBuyer().getId(),
         NotificationType.ORDER_PAID,
@@ -128,5 +153,21 @@ public class NotificationListeners {
         "post",
         comment.getPost().getId());
     log.debug("notified post author {}", comment.getPost().getId());
+  }
+
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public void onReviewCreated(ReviewCreatedEvent event) {
+    reviews.findById(event.reviewId()).ifPresent(this::notifyReviewee);
+  }
+
+  private void notifyReviewee(Review review) {
+    notifications.notify(
+        review.getReviewee().getId(),
+        NotificationType.REVIEW_RECEIVED,
+        "someone reviewed you",
+        review.getReviewer().getFullName() + " gave you " + review.getRating() + " stars",
+        "profile",
+        review.getReviewee().getId());
   }
 }

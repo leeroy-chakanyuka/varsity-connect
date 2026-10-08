@@ -7,6 +7,7 @@ import type { Report } from "../api/lostfound";
 import type { SupportOffer, SupportRequest } from "../api/support";
 import type { Post, PostComment } from "../api/community";
 import type { AppNotification } from "../api/notifications";
+import type { Review } from "../api/reviews";
 
 /* canned campus users, tokens are test-only and never leave jsdom */
 function baseUsers(): Record<string, AuthUser> {
@@ -607,9 +608,68 @@ const orderHandlers = [
       return bad(401, "UNAUTHORIZED", "authentication required");
     }
     const order = mockOrders.find((row) => row.id === params.id);
+    const sellerOnOrder =
+      !!order && order.items.some((item) => item.sellerId === viewer.id);
+    if (!order || (order.buyerId !== viewer.id && !sellerOnOrder)) {
+      return bad(404, "RESOURCE_NOT_FOUND", "order not found");
+    }
+    return HttpResponse.json(order);
+  }),
+
+  http.post("*/orders/:id/ready", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const order = mockOrders.find((row) => row.id === params.id);
+    if (!order) {
+      return bad(404, "RESOURCE_NOT_FOUND", "order not found");
+    }
+    if (!order.items.some((item) => item.sellerId === viewer.id)) {
+      return bad(403, "FORBIDDEN", "only the seller may mark this order ready");
+    }
+    if (order.status !== "PAID") {
+      return bad(400, "ORDER_INVALID", "only paid orders can be marked ready");
+    }
+    order.status = "READY_FOR_COLLECTION";
+    return HttpResponse.json(order);
+  }),
+
+  http.post("*/orders/:id/complete", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const order = mockOrders.find((row) => row.id === params.id);
     if (!order || order.buyerId !== viewer.id) {
       return bad(404, "RESOURCE_NOT_FOUND", "order not found");
     }
+    if (order.status !== "PAID" && order.status !== "READY_FOR_COLLECTION") {
+      return bad(400, "ORDER_INVALID", "only paid orders can be completed");
+    }
+    order.status = "COMPLETED";
+    return HttpResponse.json(order);
+  }),
+
+  http.post("*/orders/:id/cancel", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const order = mockOrders.find((row) => row.id === params.id);
+    if (!order || order.buyerId !== viewer.id) {
+      return bad(404, "RESOURCE_NOT_FOUND", "order not found");
+    }
+    if (order.status !== "PENDING_PAYMENT" && order.status !== "PAYMENT_FAILED") {
+      return bad(400, "ORDER_INVALID", "only unpaid orders can be cancelled");
+    }
+    for (const item of order.items) {
+      const listing = mockListings.find((row) => row.id === item.listingId);
+      if (listing) {
+        listing.status = "ACTIVE";
+      }
+    }
+    order.status = "CANCELLED";
     return HttpResponse.json(order);
   }),
 ];
@@ -1582,3 +1642,102 @@ const notificationHandlers = [
 ];
 
 handlers.push(...notificationHandlers);
+
+/* ---- mock voices below, one per order per seller, reset between tests ---- */
+
+let reviewCounter = 0;
+let mockReviews: Review[] = [];
+
+export function resetReviews() {
+  reviewCounter = 0;
+  mockReviews = [];
+}
+
+function reviewAverages(revieweeId: string): { averageRating: number; reviewCount: number } {
+  const rows = mockReviews.filter((row) => row.revieweeId === revieweeId);
+  if (rows.length === 0) {
+    return { averageRating: 0, reviewCount: 0 };
+  }
+  const sum = rows.reduce((total, row) => total + row.rating, 0);
+  return { averageRating: Math.round((sum / rows.length) * 10) / 10, reviewCount: rows.length };
+}
+
+const reviewHandlers = [
+  http.get("*/users/:userId/reviews", ({ request, params }) => {
+    if (!userFor(request)) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const rows = mockReviews
+      .filter((row) => row.revieweeId === params.userId)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    return HttpResponse.json(rows);
+  }),
+
+  http.post("*/users/:userId/reviews", async ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const revieweeId = params.userId as string;
+    const reviewer = Object.values(usersByToken).find((u) => u.id === revieweeId);
+    if (!reviewer) {
+      return bad(404, "RESOURCE_NOT_FOUND", "user not found");
+    }
+    const body = (await request.json()) as { orderId?: string; rating?: number; comment?: string };
+    const order = mockOrders.find((row) => row.id === body.orderId);
+    if (!order) {
+      return bad(404, "RESOURCE_NOT_FOUND", "order not found");
+    }
+    if (order.buyerId !== viewer.id) {
+      return bad(403, "FORBIDDEN", "only the buyer may review this order");
+    }
+    if (order.status !== "COMPLETED") {
+      return bad(400, "ORDER_NOT_COMPLETED", "only completed orders can be reviewed");
+    }
+    if (revieweeId === viewer.id) {
+      return bad(400, "SELF_REVIEW", "you cannot review yourself");
+    }
+    if (!order.items.some((item) => item.sellerId === revieweeId)) {
+      return bad(403, "FORBIDDEN", "you can only review this order's sellers");
+    }
+    if (
+      mockReviews.some(
+        (row) =>
+          row.orderId === order.id && row.reviewerId === viewer.id && row.revieweeId === revieweeId,
+      )
+    ) {
+      return bad(409, "DUPLICATE_REVIEW", "you already reviewed this seller for this order");
+    }
+    if (typeof body.rating !== "number" || body.rating < 1 || body.rating > 5) {
+      return bad(400, "VALIDATION_ERROR", "one or more fields are invalid", {
+        rating: "rating must be 1 to 5",
+      });
+    }
+    if (!body.comment?.trim()) {
+      return bad(400, "VALIDATION_ERROR", "one or more fields are invalid", {
+        comment: "comment is required",
+      });
+    }
+    reviewCounter += 1;
+    const review: Review = {
+      id: `review-${reviewCounter}`,
+      reviewerId: viewer.id,
+      reviewerName: viewer.fullName,
+      revieweeId,
+      orderId: order.id,
+      rating: body.rating,
+      comment: body.comment.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    mockReviews.unshift(review);
+    /* profiles light up immediately, same as the backend aggregates */
+    for (const user of Object.values(usersByToken)) {
+      if (user.id === revieweeId) {
+        Object.assign(user, reviewAverages(revieweeId));
+      }
+    }
+    return HttpResponse.json(review, { status: 201 });
+  }),
+];
+
+handlers.push(...reviewHandlers);

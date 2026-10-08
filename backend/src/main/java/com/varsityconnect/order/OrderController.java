@@ -49,4 +49,22 @@ public class OrderController {
       @AuthenticationPrincipal UserPrincipal principal, @PathVariable UUID id) {
     return service.detail(principal, id);
   }
+
+  @PostMapping("/{id}/ready")
+  public OrderResponse markReady(
+      @AuthenticationPrincipal UserPrincipal principal, @PathVariable UUID id) {
+    return service.markReady(principal, id);
+  }
+
+  @PostMapping("/{id}/complete")
+  public OrderResponse complete(
+      @AuthenticationPrincipal UserPrincipal principal, @PathVariable UUID id) {
+    return service.complete(principal, id);
+  }
+
+  @PostMapping("/{id}/cancel")
+  public OrderResponse cancel(
+      @AuthenticationPrincipal UserPrincipal principal, @PathVariable UUID id) {
+    return service.cancel(principal, id);
+  }
 }

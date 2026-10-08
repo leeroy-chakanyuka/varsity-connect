@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { fetchProfile, profileKeys } from "../api/profile";
 import { ProfileView } from "./profile-view";
+import { ReviewsList } from "../components/reviews/ReviewsList";
 
 /* anyone logged in can read anyone's card, contact included */
 export function PublicProfilePage() {
@@ -43,6 +44,7 @@ export function PublicProfilePage() {
         ← back to dashboard
       </Link>
       <ProfileView profile={data} />
+      <ReviewsList userId={data.id} />
     </section>
   );
 }

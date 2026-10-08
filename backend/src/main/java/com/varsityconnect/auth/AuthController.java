@@ -1,11 +1,7 @@
 package com.varsityconnect.auth;
 
 import com.varsityconnect.security.UserPrincipal;
-import com.varsityconnect.user.User;
-import com.varsityconnect.user.UserMapper;
-import com.varsityconnect.user.UserRepository;
 import jakarta.validation.Valid;
-import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,11 +18,9 @@ import org.springframework.web.server.ResponseStatusException;
 public class AuthController {
 
   private final AuthService auth;
-  private final UserRepository users;
 
-  public AuthController(AuthService auth, UserRepository users) {
+  public AuthController(AuthService auth) {
     this.auth = auth;
-    this.users = users;
   }
 
   @PostMapping("/register")
@@ -46,11 +40,6 @@ public class AuthController {
     if (principal == null) {
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "authentication required");
     }
-    UUID id = principal.id();
-    User user =
-        users
-            .findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "authentication required"));
-    return UserMapper.me(user);
+    return auth.me(principal);
   }
 }

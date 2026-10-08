@@ -56,6 +56,8 @@ export function notificationPath(notification: AppNotification): string {
       return `/survival/${id}`;
     case "post":
       return `/community/${id}`;
+    case "profile":
+      return "/profile";
     default:
       return "/dashboard";
   }

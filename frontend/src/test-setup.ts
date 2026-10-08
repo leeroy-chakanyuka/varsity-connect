@@ -1,7 +1,7 @@
 import { cleanup, configure } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterAll, afterEach, beforeAll, vi } from "vitest";
-import { resetCart, resetCommunity, resetMarketplace, resetMatches, resetMockUsers, resetNotifications, resetOrders, resetPayments, resetReports, resetSupport } from "./mocks/handlers";
+import { resetCart, resetCommunity, resetMarketplace, resetMatches, resetMockUsers, resetNotifications, resetOrders, resetPayments, resetReports, resetReviews, resetSupport } from "./mocks/handlers";
 
 /* realtime sockets stay silent under test, the socket suite mocks the client */
 class SilentWebSocket {
@@ -43,6 +43,7 @@ afterEach(() => {
   resetSupport();
   resetCommunity();
   resetNotifications();
+  resetReviews();
   sessionStorage.clear();
 });
 afterAll(() => server.close());

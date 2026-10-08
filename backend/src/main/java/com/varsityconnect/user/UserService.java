@@ -1,6 +1,8 @@
 package com.varsityconnect.user;
 
 import com.varsityconnect.common.NotFoundException;
+import com.varsityconnect.review.RatingSummary;
+import com.varsityconnect.review.ReviewRepository;
 import com.varsityconnect.security.UserPrincipal;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -11,20 +13,23 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
   private final UserRepository users;
+  private final ReviewRepository reviews;
 
-  public UserService(UserRepository users) {
+  public UserService(UserRepository users, ReviewRepository reviews) {
     this.users = users;
+    this.reviews = reviews;
   }
 
   @Transactional(readOnly = true)
   public UserProfileResponse me(UserPrincipal principal) {
-    return UserMapper.profile(current(principal));
+    return UserMapper.profile(current(principal), ratings(principal.id()));
   }
 
   @Transactional(readOnly = true)
   public UserProfileResponse byId(UUID id) {
     return UserMapper.profile(
-        users.findById(id).orElseThrow(() -> new NotFoundException("user not found")));
+        users.findById(id).orElseThrow(() -> new NotFoundException("user not found")),
+        ratings(id));
   }
 
   @Transactional
@@ -47,13 +52,20 @@ public class UserService {
     if (request.profileImageUrl() != null) {
       user.setProfileImageUrl(blankToNull(request.profileImageUrl()));
     }
-    return UserMapper.profile(users.save(user));
+    User saved = users.save(user);
+    return UserMapper.profile(saved, ratings(saved.getId()));
   }
 
   private User current(UserPrincipal principal) {
     return users
         .findById(principal.id())
         .orElseThrow(() -> new NotFoundException("user not found"));
+  }
+
+  /* zeros until the first review, one indexed aggregate per read */
+  private RatingSummary ratings(UUID id) {
+    Double average = reviews.averageFor(id);
+    return new RatingSummary(average == null ? 0.0 : average, reviews.countFor(id));
   }
 
   private static String blankToNull(String value) {

@@ -62,6 +62,21 @@ export async function fetchOrder(id: string): Promise<Order> {
   return data;
 }
 
+export async function markOrderReady(id: string): Promise<Order> {
+  const { data } = await api.post<Order>(`/orders/${id}/ready`);
+  return data;
+}
+
+export async function completeOrder(id: string): Promise<Order> {
+  const { data } = await api.post<Order>(`/orders/${id}/complete`);
+  return data;
+}
+
+export async function cancelOrder(id: string): Promise<Order> {
+  const { data } = await api.post<Order>(`/orders/${id}/cancel`);
+  return data;
+}
+
 export function useCheckout() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -89,5 +104,40 @@ export function useOrder(id: string | undefined) {
     queryFn: () => fetchOrder(id ?? ""),
     enabled: !!id,
     retry: false,
+  });
+}
+
+export function useMarkOrderReady(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => markOrderReady(id),
+    onSuccess: (order) => {
+      queryClient.setQueryData(orderKeys.detail(id), order);
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+    },
+  });
+}
+
+export function useCompleteOrder(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => completeOrder(id),
+    onSuccess: (order) => {
+      queryClient.setQueryData(orderKeys.detail(id), order);
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+    },
+  });
+}
+
+export function useCancelOrder(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => cancelOrder(id),
+    onSuccess: (order) => {
+      /* cancelled stock returns, the shelf and receipt both move */
+      queryClient.setQueryData(orderKeys.detail(id), order);
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+      queryClient.invalidateQueries({ queryKey: listingKeys.all });
+    },
   });
 }

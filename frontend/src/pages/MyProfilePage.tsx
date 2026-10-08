@@ -12,6 +12,7 @@ import {
   type Profile,
 } from "../api/profile";
 import { ProfileView } from "./profile-view";
+import { ReviewsList } from "../components/reviews/ReviewsList";
 
 const schema = z.object({
   fullName: z.string().trim().min(1, "full name is required").max(120, "full name is too long"),
@@ -64,6 +65,7 @@ export function MyProfilePage() {
         my profile<span className="text-rosewood">.</span>
       </h1>
       <ProfileView profile={data} />
+      <ReviewsList userId={data.id} />
       <EditProfileForm key={data.id} initial={data} />
     </section>
   );
