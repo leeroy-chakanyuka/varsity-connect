@@ -91,6 +91,7 @@ public class DevDataSeeder implements ApplicationRunner {
   @Override
   @Transactional
   public void run(ApplicationArguments args) {
+    backfillImages();
     long missing = TARGET_LISTINGS - listings.count();
     if (missing <= 0) {
       return;
@@ -103,7 +104,7 @@ public class DevDataSeeder implements ApplicationRunner {
       String title = row[0] + (round == 0 ? "" : " " + (round + 1));
       int base = (int) row[2];
       BigDecimal price = BigDecimal.valueOf(Math.max(20, base - (i % 5) * 15));
-      batch.add(
+      MarketplaceListing listing =
           new MarketplaceListing(
               sellers.get(i % sellers.size()),
               title,
@@ -111,10 +112,31 @@ public class DevDataSeeder implements ApplicationRunner {
               price,
               (ListingCategory) row[1],
               CONDITIONS[i % CONDITIONS.length],
-              SPOTS[i % SPOTS.length]));
+              SPOTS[i % SPOTS.length]);
+      listing.setImages(List.of(photoFor(title)));
+      batch.add(listing);
     }
     listings.saveAll(batch);
     log.info("seeded {} marketplace listings", batch.size());
+  }
+
+  /* older rows went in imageless, give them the same deterministic photos */
+  private void backfillImages() {
+    List<MarketplaceListing> bare =
+        listings.findAll().stream().filter(row -> row.getImages().isEmpty()).toList();
+    for (MarketplaceListing row : bare) {
+      row.setImages(List.of(photoFor(row.getTitle())));
+    }
+    if (!bare.isEmpty()) {
+      listings.saveAll(bare);
+      log.info("backfilled photos for {} marketplace listings", bare.size());
+    }
+  }
+
+  /* deterministic placeholder photo per title, stable across reboots */
+  private static String photoFor(String title) {
+    String slug = title.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("(^-|-$)", "");
+    return "https://picsum.photos/seed/" + slug + "/600";
   }
 
   private List<User> sellers() {
