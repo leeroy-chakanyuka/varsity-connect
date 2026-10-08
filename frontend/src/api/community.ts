@@ -139,3 +139,38 @@ export function useCreateComment(postId: string) {
     },
   });
 }
+
+export async function updateComment(id: string, body: string): Promise<PostComment> {
+  const { data } = await api.patch<PostComment>(`/community/comments/${id}`, { body });
+  return data;
+}
+
+export async function deleteComment(id: string): Promise<void> {
+  await api.delete(`/community/comments/${id}`);
+}
+
+export function useUpdateComment(postId: string, id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) => updateComment(id, body),
+    onSuccess: (comment) => {
+      queryClient.setQueryData<PostComment[]>(communityKeys.comments(postId), (old) =>
+        (old ?? []).map((row) => (row.id === comment.id ? comment : row)),
+      );
+      queryClient.invalidateQueries({ queryKey: communityKeys.all });
+    },
+  });
+}
+
+export function useDeleteComment(postId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteComment(id),
+    onSuccess: (_void, id) => {
+      queryClient.setQueryData<PostComment[]>(communityKeys.comments(postId), (old) =>
+        (old ?? []).filter((row) => row.id !== id),
+      );
+      queryClient.invalidateQueries({ queryKey: communityKeys.all });
+    },
+  });
+}

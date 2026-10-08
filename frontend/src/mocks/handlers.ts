@@ -1546,6 +1546,49 @@ const communityHandlers = [
     post.commentCount += 1;
     return HttpResponse.json(comment, { status: 201 });
   }),
+
+  http.patch("*/community/comments/:id", async ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const comment = mockComments.find((row) => row.id === params.id);
+    if (!comment) {
+      return bad(404, "RESOURCE_NOT_FOUND", "comment not found");
+    }
+    if (comment.author.id !== viewer.id) {
+      return bad(403, "FORBIDDEN", "only the author may edit this comment");
+    }
+    const body = (await request.json()) as { body?: string };
+    if (!body.body?.trim()) {
+      return bad(400, "VALIDATION_ERROR", "one or more fields are invalid", {
+        body: "body is required",
+      });
+    }
+    comment.body = body.body.trim();
+    return HttpResponse.json(comment);
+  }),
+
+  http.delete("*/community/comments/:id", ({ request, params }) => {
+    const viewer = userFor(request);
+    if (!viewer) {
+      return bad(401, "UNAUTHORIZED", "authentication required");
+    }
+    const index = mockComments.findIndex((row) => row.id === params.id);
+    if (index < 0) {
+      return bad(404, "RESOURCE_NOT_FOUND", "comment not found");
+    }
+    const comment = mockComments[index];
+    if (comment.author.id !== viewer.id && viewer.role !== "ADMIN") {
+      return bad(403, "FORBIDDEN", "only the author may delete this comment");
+    }
+    mockComments.splice(index, 1);
+    const post = mockPosts.find((row) => row.id === comment.postId);
+    if (post) {
+      post.commentCount = Math.max(0, post.commentCount - 1);
+    }
+    return new HttpResponse(null, { status: 204 });
+  }),
 ];
 
 handlers.push(...communityHandlers);

@@ -192,7 +192,7 @@ export function CommunityPostPage() {
           replies<span className="text-rosewood">.</span>
         </h2>
         <CommentForm postId={data.id} />
-        <CommentList comments={comments ?? []} />
+        <CommentList comments={comments ?? []} postId={data.id} />
       </div>
     </section>
   );

@@ -100,6 +100,37 @@ describe("thread detail", () => {
     expect(await screen.findByText("same here")).toBeInTheDocument();
   });
 
+  it("edits its own reply", async () => {
+    renderCommunity("/community/post-nsfas", "student-token");
+    await screen.findByText("nsfas allowance dates");
+
+    fireEvent.change(screen.getByLabelText(/write a reply/i), { target: { value: "fixable words" } });
+    fireEvent.click(screen.getByRole("button", { name: /^reply$/i }));
+
+    /* the edit affordance only exists on a posted reply, never on the draft box */
+    fireEvent.click(await screen.findByRole("button", { name: /^edit$/i }));
+    fireEvent.change(screen.getByLabelText(/edit reply/i), { target: { value: "fixed words" } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    /* editor closes on success, the saved words stay on the card */
+    await waitFor(() => expect(screen.queryByLabelText(/edit reply/i)).not.toBeInTheDocument());
+    expect(screen.getByText("fixed words")).toBeInTheDocument();
+  });
+
+  it("removes its reply with a confirm step", async () => {
+    renderCommunity("/community/post-nsfas", "student-token");
+    await screen.findByText("nsfas allowance dates");
+
+    fireEvent.change(screen.getByLabelText(/write a reply/i), { target: { value: "regretful words" } });
+    fireEvent.click(screen.getByRole("button", { name: /^reply$/i }));
+
+    fireEvent.click(await screen.findByRole("button", { name: /remove reply by test user/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /yes, remove/i }));
+
+    /* draft box cleared on submit, so absence means really gone */
+    await waitFor(() => expect(screen.queryByText("regretful words")).not.toBeInTheDocument());
+  });
+
   it("shows owner controls only to the author", async () => {
     /* nsfas belongs to the vendor */
     renderCommunity("/community/post-nsfas", "vendor-token");

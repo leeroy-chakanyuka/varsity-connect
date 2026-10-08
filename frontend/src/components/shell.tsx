@@ -32,7 +32,7 @@ export function Shell() {
           varsity connect<span className="text-rosewood">.</span>
         </Link>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <Link
             to="/market"
             className="text-sm lowercase tracking-wide text-taupe transition-colors hover:text-rosewood"
