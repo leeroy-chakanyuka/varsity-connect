@@ -3,6 +3,8 @@ import { Bell } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useCart } from "../api/cart";
 import { useUnreadCount } from "../api/notifications";
+import { useNotificationsSocket } from "../realtime/notifications-socket";
+import { RealtimeToasts } from "../realtime/RealtimeToasts";
 
 /* minimal shell like stardust nav, lowercase + warm neutrals */
 export function Shell() {
@@ -11,6 +13,8 @@ export function Shell() {
   /* badge only for sessions, no token means no basket query */
   const { data: cart } = useCart();
   const { data: unread } = useUnreadCount();
+  /* live pings ride beside the bell, polling keeps working underneath */
+  useNotificationsSocket();
 
   const onLogout = () => {
     logout();
@@ -118,6 +122,7 @@ export function Shell() {
       <main className="flex flex-1 flex-col">
         <Outlet />
       </main>
+      {ready && user && <RealtimeToasts />}
     </div>
   );
 }

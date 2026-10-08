@@ -8,8 +8,11 @@ import com.varsityconnect.user.UserRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,12 +20,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class NotificationService {
 
+  private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
+
   private final NotificationRepository notifications;
   private final UserRepository users;
+  private final SimpMessagingTemplate messaging;
 
-  public NotificationService(NotificationRepository notifications, UserRepository users) {
+  public NotificationService(
+      NotificationRepository notifications, UserRepository users, SimpMessagingTemplate messaging) {
     this.notifications = notifications;
     this.users = users;
+    this.messaging = messaging;
   }
 
   /* fire-and-remember entry point for event listeners */
@@ -36,7 +44,10 @@ public class NotificationService {
       UUID entityId) {
     User recipient =
         users.findById(recipientId).orElseThrow(() -> new NotFoundException("user not found"));
-    notifications.save(new Notification(recipient, type, title, message, entityType, entityId));
+    Notification saved =
+        notifications.save(new Notification(recipient, type, title, message, entityType, entityId));
+    /* row first, ping second — offline users keep the row, online ones hear it live */
+    push(saved);
   }
 
   @Transactional(readOnly = true)
@@ -86,5 +97,17 @@ public class NotificationService {
     return notifications
         .findByIdAndRecipientId(id, principal.id())
         .orElseThrow(() -> new NotFoundException("notification not found"));
+  }
+
+  /* nobody online means the broker drops it, the row above already keeps it */
+  private void push(Notification saved) {
+    try {
+      messaging.convertAndSendToUser(
+          saved.getRecipient().getId().toString(),
+          "/queue/notifications",
+          NotificationResponse.from(saved));
+    } catch (Exception e) {
+      log.warn("live push failed for notification {}, inbox row kept", saved.getId());
+    }
   }
 }
